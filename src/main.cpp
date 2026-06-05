@@ -12,10 +12,11 @@ public:
     Bird()
         : engine::Object("Bird")
     {
-        components.transform =
-            engine::component::Transform(
-                {1, 1}, {-100, 64}, 0
-            );
+        components.transform = {
+                {1, 1},
+                {-100, 64},
+                0
+            };
 
         components.addComponent(
             engine::component::Sprite(
@@ -51,10 +52,11 @@ public:
     Background()
         : engine::Object("Background")
     {
-        components.transform =
-            engine::component::Transform(
-                {1, 1}, {0, 0}, 0
-            );
+        components.transform ={
+                {1, 1},
+                {0, 0},
+                0
+            };
         components.addComponent(
             engine::component::Sprite(
                 288, 512,
@@ -74,10 +76,11 @@ public:
     Ground()
         : engine::Object("Ground")
     {
-        components.transform =
-            engine::component::Transform(
-                {1, 1}, {0, -200}, 0
-            );
+        components.transform = {
+                {1, 1},
+                {0, -200},
+                0
+            };
         components.addComponent(
             engine::component::Sprite(
                 336, 112,
