@@ -1,6 +1,6 @@
 #include "components.hpp"
 #include "controls.hpp"
-#include <array>
+#include <cstdint>
 #include <functional>
 #include <objects.hpp>
 #include <scene.hpp>
@@ -71,8 +71,8 @@ class Ground : public engine::Object {
     const float FLOOR_SPEED = 150.0f;
 
 public:
-    Ground(const char *name)
-        : engine::Object(name)
+    Ground()
+        : engine::Object("Ground")
     {
         components.transform =
             engine::component::Transform(
@@ -81,17 +81,41 @@ public:
         components.addComponent(
             engine::component::Sprite(
                 336, 112,
-                {
-                    "assets/sprites/base.png"
-                }
+                {"assets/sprites/base.png"}
             )
         );
+        components.addComponent(
+            engine::component::Sprite(
+                336, 112,
+                {"assets/sprites/base.png"}
+            )
+        );
+        components.addComponent(
+            engine::component::Sprite(
+                336, 112,
+                {"assets/sprites/base.png"}
+            )
+        );
+
+        uint32_t push_x = 0;
+        for (auto sprite : components.get<engine::component::Sprite>()) {
+            sprite.get().transform.translate.x += push_x;
+            push_x += 336;
+        }
     }
 
     void update(float delta) override {
-        auto left = engine::vec2(-1.0f, 0.0f);
-        auto velocity = left * FLOOR_SPEED * delta;
-        components.transform.translate += velocity;
+        for (auto sprite : components.get<engine::component::Sprite>()) {
+            auto &s = sprite.get();
+            auto left = engine::vec2(-1.0f, 0.0f);
+            auto velocity = left * FLOOR_SPEED * delta;
+            s.transform.translate += velocity;
+
+            if (s.transform.translate.x <= -336.0f) {
+                s.transform.translate +=
+                    engine::vec2{ 336.0f * 2.f, 0.0f };
+            }
+        }
     }
 };
 
@@ -99,36 +123,12 @@ class MainScene : public engine::Scene {
 public:
     Background bg;
     Bird bird;
-    Ground g1{"Ground 1"};
-    Ground g2{"Ground 2"};
-    Ground g3{"Ground 3"};
+    Ground g1;
 
     MainScene() {
         objects.push_back(&bg);
         objects.push_back(&bird);
         objects.push_back(&g1);
-        objects.push_back(&g2);
-        objects.push_back(&g3);
-
-        g2.getComponents().transform.translate += engine::vec2{336.0f, 0.0f};
-        g3.getComponents().transform.translate += (
-            engine::vec2{ 336.0f * 2.0f, 0.0f });
-    }
-
-    void update(float) override {
-        auto transforms = std::array<
-            std::reference_wrapper<engine::component::Transform>, 3>
-        {
-            g1.getComponents().transform,
-            g2.getComponents().transform,
-            g3.getComponents().transform,
-        };
-
-        for (auto &tr : transforms) {
-            if (tr.get().translate.x <= -336.0f) {
-                tr.get().translate += engine::vec2{ 336.0f * 2.f, 0.0f };
-            }
-        }
     }
 };
 
