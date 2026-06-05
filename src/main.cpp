@@ -12,11 +12,11 @@ public:
     Bird()
         : engine::Object("Bird")
     {
-        components.addComponent(
+        components.transform =
             engine::component::Transform(
                 {1, 1}, {-100, 64}, 0
-            )
-        );
+            );
+
         components.addComponent(
             engine::component::Sprite(
                 32, 24,
@@ -39,9 +39,10 @@ public:
             velocity.y = 250.0f;
         }
 
-        const auto gravity = components.physics()->gravity;
+        auto physics = components.get<engine::component::Physics>().front().get();
+        const auto gravity = physics.gravity;
         velocity.y += -gravity * GRAVITY_SCALE * deltaTime;
-        components.transform()->translate += velocity * deltaTime;
+        components.transform.translate += velocity * deltaTime;
     }
 };
 
@@ -50,11 +51,10 @@ public:
     Background()
         : engine::Object("Background")
     {
-        components.addComponent(
+        components.transform =
             engine::component::Transform(
-                    {1, 1}, {0, 0}, 0
-            )
-        );
+                {1, 1}, {0, 0}, 0
+            );
         components.addComponent(
             engine::component::Sprite(
                 288, 512,
@@ -74,11 +74,10 @@ public:
     Ground(const char *name)
         : engine::Object(name)
     {
-        components.addComponent(
+        components.transform =
             engine::component::Transform(
                 {1, 1}, {0, -200}, 0
-            )
-        );
+            );
         components.addComponent(
             engine::component::Sprite(
                 336, 112,
@@ -92,7 +91,7 @@ public:
     void update(float delta) override {
         auto left = engine::vec2(-1.0f, 0.0f);
         auto velocity = left * FLOOR_SPEED * delta;
-        components.transform()->translate += velocity;
+        components.transform.translate += velocity;
     }
 };
 
@@ -111,8 +110,8 @@ public:
         objects.push_back(&g2);
         objects.push_back(&g3);
 
-        g2.getComponents().transform()->translate += engine::vec2{336.0f, 0.0f};
-        g3.getComponents().transform()->translate += (
+        g2.getComponents().transform.translate += engine::vec2{336.0f, 0.0f};
+        g3.getComponents().transform.translate += (
             engine::vec2{ 336.0f * 2.0f, 0.0f });
     }
 
@@ -120,9 +119,9 @@ public:
         auto transforms = std::array<
             std::reference_wrapper<engine::component::Transform>, 3>
         {
-            g1.getComponents().transform().value(),
-            g2.getComponents().transform().value(),
-            g3.getComponents().transform().value(),
+            g1.getComponents().transform,
+            g2.getComponents().transform,
+            g3.getComponents().transform,
         };
 
         for (auto &tr : transforms) {
