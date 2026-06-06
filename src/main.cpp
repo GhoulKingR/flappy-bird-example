@@ -1,31 +1,35 @@
 #include "components.hpp"
 #include "controls.hpp"
+#include <array>
 #include <cstdint>
-#include <functional>
+#include <filesystem>
+#include <initializer_list>
+#include <memory>
 #include <objects.hpp>
 #include <scene.hpp>
 #include <engine.hpp>
 #include <cstdlib>
+#include <utility>
 
 class Bird : public engine::Object {
 public:
+    engine::component::Physics *physics;
+
     Bird()
         : engine::Object("Bird")
     {
-        components.transform.translate = {-100, 64};
-        components.addComponent(
-            engine::component::Sprite(
-                32, 24,
-                {
-                    "assets/sprites/redbird-upflap.png",
-                    "assets/sprites/redbird-midflap.png",
-                    "assets/sprites/redbird-downflap.png"
-                }
-            )
-        );
-        components.addComponent(
-            engine::component::Physics()
-        );
+        transform.translate = {-100, 64};
+        components.emplace_back(std::make_unique<engine::component::Sprite>(
+            32, 24,
+            std::initializer_list<std::filesystem::path>{
+                "assets/sprites/redbird-upflap.png",
+                "assets/sprites/redbird-midflap.png",
+                "assets/sprites/redbird-downflap.png"
+            }
+        ));
+        auto _p = std::make_unique<engine::component::Physics>();
+        physics = _p.get();
+        components.push_back(std::move(_p));
     }
 
     const float GRAVITY_SCALE = 40.0f;
@@ -35,10 +39,9 @@ public:
             velocity.y = 250.0f;
         }
 
-        auto physics = components.get<engine::component::Physics>().front().get();
-        const auto gravity = physics.gravity;
+        const auto gravity = physics->gravity;
         velocity.y += -gravity * GRAVITY_SCALE * deltaTime;
-        components.transform.translate += velocity * deltaTime;
+        transform.translate += velocity * deltaTime;
     }
 };
 
@@ -47,61 +50,45 @@ public:
     Background()
         : engine::Object("Background")
     {
-        components.addComponent(
-            engine::component::Sprite(
-                288, 512,
-                {
-                    "assets/sprites/background-night.png",
-                    "assets/sprites/background-day.png"
-                }
-            )
-        );
+        components.push_back(std::make_unique<engine::component::Sprite>(
+            288, 512,
+            std::initializer_list<std::filesystem::path>{
+                "assets/sprites/background-night.png",
+                "assets/sprites/background-day.png"
+            }
+        ));
     }
 };
 
 class Ground : public engine::Object {
     const float FLOOR_SPEED = 150.0f;
+    std::array<engine::component::Sprite*, 3> sprites;
 
 public:
     Ground()
         : engine::Object("Ground")
     {
-        components.transform.translate = {0, -200};
-        components.addComponent(
-            engine::component::Sprite(
-                336, 112,
-                {"assets/sprites/base.png"}
-            )
-        );
-        components.addComponent(
-            engine::component::Sprite(
-                336, 112,
-                {"assets/sprites/base.png"}
-            )
-        );
-        components.addComponent(
-            engine::component::Sprite(
-                336, 112,
-                {"assets/sprites/base.png"}
-            )
-        );
+        transform.translate = {0, -200};
 
-        uint32_t push_x = 0;
-        for (auto sprite : components.get<engine::component::Sprite>()) {
-            sprite.get().transform.translate.x += push_x;
-            push_x += 336;
+        for (int i = 0; i < 3; i++) {
+            auto _s = std::make_unique<engine::component::Sprite>(
+                336, 112,
+                std::initializer_list<std::filesystem::path>{"assets/sprites/base.png"}
+            );
+            _s->transform.translate.x = i * 336;
+            sprites[i] = _s.get();
+            components.push_back(std::move(_s));
         }
     }
 
     void update(float delta) override {
-        for (auto sprite : components.get<engine::component::Sprite>()) {
-            auto &s = sprite.get();
+        for (auto s : sprites) {
             auto left = engine::vec2(-1.0f, 0.0f);
             auto velocity = left * FLOOR_SPEED * delta;
-            s.transform.translate += velocity;
+            s->transform.translate += velocity;
 
-            if (s.transform.translate.x <= -336.0f) {
-                s.transform.translate +=
+            if (s->transform.translate.x <= -336.0f) {
+                s->transform.translate +=
                     engine::vec2{ 336.0f * 2.f, 0.0f };
             }
         }
@@ -110,16 +97,16 @@ public:
 
 class Score : public engine::Object {
 public:
-    engine::component::Sprite *s1, *s2;
+    std::array<engine::component::Sprite *, 2> sprites;
 
     Score()
         : engine::Object("Score")
     {
-        components.transform.translate.y = 222;
-        components.addComponent(
-            engine::component::Sprite(
+        transform.translate.y = 222;
+        for (int i = 0; i < 2; i++) {
+            auto _s = std::make_unique<engine::component::Sprite>(
                 24, 36,
-                {
+                std::initializer_list<std::filesystem::path>{
                     "assets/sprites/0.png",
                     "assets/sprites/1.png",
                     "assets/sprites/2.png",
@@ -131,39 +118,20 @@ public:
                     "assets/sprites/8.png",
                     "assets/sprites/9.png",
                 }
-            )
-        );
-        components.addComponent(
-            engine::component::Sprite(
-                24, 36,
-                {
-                    "assets/sprites/0.png",
-                    "assets/sprites/1.png",
-                    "assets/sprites/2.png",
-                    "assets/sprites/3.png",
-                    "assets/sprites/4.png",
-                    "assets/sprites/5.png",
-                    "assets/sprites/6.png",
-                    "assets/sprites/7.png",
-                    "assets/sprites/8.png",
-                    "assets/sprites/9.png",
-                }
-            )
-        );
+            );
+            sprites[i] = _s.get();
+            components.push_back(std::move(_s));
+        }
 
-        auto _s = components.get<engine::component::Sprite>();
-        const auto sprites = std::vector(_s.begin(), _s.end());
-        s1 = &(sprites[0].get());
-        s2 = &(sprites[1].get());
-        s1->transform.translate.x = -11;
-        s2->transform.translate.x =  11;
+        sprites[0]->transform.translate.x = -11;
+        sprites[1]->transform.translate.x =  11;
     }
 
     uint8_t score = 23;
     void update(float) override {
         if (score < 99) {
-            s1->current_texture = static_cast<uint32_t>(score / 10);
-            s2->current_texture = static_cast<uint32_t>(score % 10);
+            sprites[0]->current_texture = static_cast<uint32_t>(score / 10);
+            sprites[1]->current_texture = static_cast<uint32_t>(score % 10);
         }
     }
 };
