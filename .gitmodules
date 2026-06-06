@@ -1,6 +1,0 @@
-[submodule "assets"]
-	path = assets
-	url = https://github.com/samuelcust/flappy-bird-assets
-[submodule "gev0_engine"]
-	path = gev0_engine
-	url = https://github.com/GhoulKingR/game-engine-v0
