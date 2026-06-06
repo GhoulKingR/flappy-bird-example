@@ -15,8 +15,7 @@ class Bird : public engine::Object {
 public:
     engine::component::Physics *physics;
 
-    Bird()
-        : engine::Object("Bird")
+    Bird() : engine::Object("Bird")
     {
         transform.translate = {-100, 64};
         components.emplace_back(std::make_unique<engine::component::Sprite>(
@@ -47,8 +46,7 @@ public:
 
 class Background : public engine::Object {
 public:
-    Background()
-        : engine::Object("Background")
+    Background() : engine::Object("Background")
     {
         components.push_back(std::make_unique<engine::component::Sprite>(
             288, 512,
@@ -62,15 +60,14 @@ public:
 
 class Ground : public engine::Object {
     const float FLOOR_SPEED = 150.0f;
-    std::array<engine::component::Sprite*, 3> sprites;
+    std::array<engine::component::Sprite*, 2> sprites;
 
 public:
-    Ground()
-        : engine::Object("Ground")
+    Ground() : engine::Object("Ground")
     {
         transform.translate = {0, -200};
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             auto _s = std::make_unique<engine::component::Sprite>(
                 336, 112,
                 std::initializer_list<std::filesystem::path>{"assets/sprites/base.png"}
@@ -99,8 +96,7 @@ class Score : public engine::Object {
 public:
     std::array<engine::component::Sprite *, 2> sprites;
 
-    Score()
-        : engine::Object("Score")
+    Score() : engine::Object("Score")
     {
         transform.translate.y = 222;
         for (int i = 0; i < 2; i++) {
@@ -125,6 +121,7 @@ public:
 
         sprites[0]->transform.translate.x = -11;
         sprites[1]->transform.translate.x =  11;
+        // sprites[0]->hidden = true;
     }
 
     uint8_t score = 23;
