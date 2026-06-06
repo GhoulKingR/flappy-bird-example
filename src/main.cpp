@@ -12,12 +12,7 @@ public:
     Bird()
         : engine::Object("Bird")
     {
-        components.transform = {
-                {1, 1},
-                {-100, 64},
-                0
-            };
-
+        components.transform.translate = {-100, 64};
         components.addComponent(
             engine::component::Sprite(
                 32, 24,
@@ -52,11 +47,6 @@ public:
     Background()
         : engine::Object("Background")
     {
-        components.transform ={
-                {1, 1},
-                {0, 0},
-                0
-            };
         components.addComponent(
             engine::component::Sprite(
                 288, 512,
@@ -76,11 +66,7 @@ public:
     Ground()
         : engine::Object("Ground")
     {
-        components.transform = {
-                {1, 1},
-                {0, -200},
-                0
-            };
+        components.transform.translate = {0, -200};
         components.addComponent(
             engine::component::Sprite(
                 336, 112,
@@ -122,14 +108,76 @@ public:
     }
 };
 
+class Score : public engine::Object {
+public:
+    engine::component::Sprite *s1, *s2;
+
+    Score()
+        : engine::Object("Score")
+    {
+        components.transform.translate.y = 222;
+        components.addComponent(
+            engine::component::Sprite(
+                24, 36,
+                {
+                    "assets/sprites/0.png",
+                    "assets/sprites/1.png",
+                    "assets/sprites/2.png",
+                    "assets/sprites/3.png",
+                    "assets/sprites/4.png",
+                    "assets/sprites/5.png",
+                    "assets/sprites/6.png",
+                    "assets/sprites/7.png",
+                    "assets/sprites/8.png",
+                    "assets/sprites/9.png",
+                }
+            )
+        );
+        components.addComponent(
+            engine::component::Sprite(
+                24, 36,
+                {
+                    "assets/sprites/0.png",
+                    "assets/sprites/1.png",
+                    "assets/sprites/2.png",
+                    "assets/sprites/3.png",
+                    "assets/sprites/4.png",
+                    "assets/sprites/5.png",
+                    "assets/sprites/6.png",
+                    "assets/sprites/7.png",
+                    "assets/sprites/8.png",
+                    "assets/sprites/9.png",
+                }
+            )
+        );
+
+        auto _s = components.get<engine::component::Sprite>();
+        const auto sprites = std::vector(_s.begin(), _s.end());
+        s1 = &(sprites[0].get());
+        s2 = &(sprites[1].get());
+        s1->transform.translate.x = -11;
+        s2->transform.translate.x =  11;
+    }
+
+    uint8_t score = 23;
+    void update(float) override {
+        if (score < 99) {
+            s1->current_texture = static_cast<uint32_t>(score / 10);
+            s2->current_texture = static_cast<uint32_t>(score % 10);
+        }
+    }
+};
+
 class MainScene : public engine::Scene {
 public:
     Background bg;
     Bird bird;
     Ground g1;
+    Score score;
 
     MainScene() {
         objects.push_back(&bg);
+        objects.push_back(&score);
         objects.push_back(&bird);
         objects.push_back(&g1);
     }
