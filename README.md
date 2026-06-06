@@ -15,12 +15,19 @@ Platform-wise, this engine is verified to run on macOS and Linux.
 
 ## How to run
 
-Download the engine code and assets files using this command:
+Clone the example and cd into it:
 ```
-git submodule update --init
+git clone https://github.com/GhoulKingR/flappy-bird-example.git
+cd flappy-bird-example
 ```
 
-Create a build directory and enter into it:
+Clone the engine and assets files using this command:
+```
+git clone https://github.com/GhoulKingR/game-engine-v0.git gev0_engine
+git clone https://github.com/samuelcust/flappy-bird-assets assets
+```
+
+Create a build directory and cd into it:
 ```
 mkdir build
 cd build
