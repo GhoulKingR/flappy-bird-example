@@ -14,31 +14,21 @@
 class Bird : public engine::Object {
 public:
     engine::component::Physics *physics;
-    engine::component::Sprite *sprite;
-    engine::component::Timer *timer;
 
     Bird() : engine::Object("Bird")
     {
         transform.translate = {-100, 64};
-
-        auto _s = std::make_unique<engine::component::Sprite>(
+        components.emplace_back(std::make_unique<engine::component::Sprite>(
             32, 24,
             std::initializer_list<std::filesystem::path>{
                 "assets/sprites/redbird-upflap.png",
                 "assets/sprites/redbird-midflap.png",
                 "assets/sprites/redbird-downflap.png"
             }
-        );
-        sprite = _s.get();
-        components.emplace_back(std::move(_s));
-
+        ));
         auto _p = std::make_unique<engine::component::Physics>();
         physics = _p.get();
         components.push_back(std::move(_p));
-
-        auto _t = std::make_unique<engine::component::Timer>();
-        timer = _t.get();
-        components.push_back(std::move(_t));
     }
 
     const float GRAVITY_SCALE = 40.0f;
@@ -46,11 +36,6 @@ public:
     void update(float deltaTime) override {
         if (engine::controls::isActionJustPressed("fly")) {
             velocity.y = 250.0f;
-            sprite->current_texture = 2;
-
-            timer->setTimeout([this](){
-                sprite->current_texture--;
-            }, 500, 2);
         }
 
         const auto gravity = physics->gravity;
