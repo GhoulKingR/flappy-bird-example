@@ -23,7 +23,7 @@ public:
 
         auto _s = std::make_unique<engine::component::Sprite>(
             32, 24,
-            std::initializer_list<std::filesystem::path>{
+            std::vector<std::filesystem::path>{
                 "assets/sprites/redbird-upflap.png",
                 "assets/sprites/redbird-midflap.png",
                 "assets/sprites/redbird-downflap.png"
@@ -41,7 +41,7 @@ public:
         components.push_back(std::move(_t));
     }
 
-    const float GRAVITY_SCALE = 40.0f;
+    constexpr static float GRAVITY_SCALE = 40.0f;
     engine::vec2<float> velocity {0, 0};
     void update(float deltaTime) override {
         if (engine::controls::isActionJustPressed("fly")) {
@@ -65,7 +65,7 @@ public:
     {
         components.push_back(std::make_unique<engine::component::Sprite>(
             288, 512,
-            std::initializer_list<std::filesystem::path>{
+            std::vector<std::filesystem::path>{
                 "assets/sprites/background-night.png",
                 "assets/sprites/background-day.png"
             }
@@ -75,14 +75,15 @@ public:
 
 class Ground : public engine::Object {
     const float FLOOR_SPEED = 150.0f;
-    std::array<engine::component::Sprite*, 2> sprites;
+    constexpr static int SPRITE_SIZE = 2;
+    std::array<engine::component::Sprite*, SPRITE_SIZE> sprites;
 
 public:
     Ground() : engine::Object("Ground")
     {
         transform.translate = {0, -200};
 
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < SPRITE_SIZE; i++) {
             auto _s = std::make_unique<engine::component::Sprite>(
                 336, 112,
                 std::initializer_list<std::filesystem::path>{"assets/sprites/base.png"}
@@ -95,7 +96,7 @@ public:
 
     void update(float delta) override {
         for (auto s : sprites) {
-            auto left = engine::vec2(-1.0f, 0.0f);
+            const auto left = engine::vec2(-1.0f, 0.0f);
             auto velocity = left * FLOOR_SPEED * delta;
             s->transform.translate += velocity;
 
@@ -117,7 +118,7 @@ public:
         for (int i = 0; i < 2; i++) {
             auto _s = std::make_unique<engine::component::Sprite>(
                 24, 36,
-                std::initializer_list<std::filesystem::path>{
+                std::vector<std::filesystem::path>{
                     "assets/sprites/0.png",
                     "assets/sprites/1.png",
                     "assets/sprites/2.png",
@@ -136,7 +137,6 @@ public:
 
         sprites[0]->transform.translate.x = -11;
         sprites[1]->transform.translate.x =  11;
-        // sprites[0]->hidden = true;
     }
 
     uint8_t score = 23;
