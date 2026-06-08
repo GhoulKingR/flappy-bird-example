@@ -10,6 +10,7 @@
 #include <engine.hpp>
 #include <cstdlib>
 #include <utility>
+#include <vector>
 
 class Bird : public engine::Object {
 public:
@@ -73,8 +74,9 @@ public:
     }
 };
 
+constexpr float FLOOR_SPEED = 150.0f;
+
 class Ground : public engine::Object {
-    const float FLOOR_SPEED = 150.0f;
     constexpr static int SPRITE_SIZE = 2;
     std::array<engine::component::Sprite*, SPRITE_SIZE> sprites;
 
@@ -148,17 +150,58 @@ public:
     }
 };
 
+class Pipes : public engine::Object {
+    static constexpr int PIPE_COUNT = 4;
+    static constexpr float SPACING = 175;
+    std::array<engine::component::Sprite *, PIPE_COUNT> pipes;
+
+public:
+    Pipes()
+    : engine::Object("Pipes")
+    {
+        for (int i = 0; i < PIPE_COUNT; i++) {
+            auto _p = std::make_unique<engine::component::Sprite>(
+                52, 320,
+                std::vector<std::filesystem::path>{
+                    "assets/sprites/pipe-red.png"
+                }
+            );
+            _p->transform.rotate = i % 2 ? 180.0f : 0.f;
+            _p->transform.translate.y = i % 2 ? 256.0f : -256.0f;
+            _p->transform.translate.x =
+                static_cast<int>(i / 2) * SPACING - 100.0f;
+            pipes[i] = _p.get();
+            components.push_back(std::move(_p));
+        }
+    }
+
+    void update(float delta) override {
+        for (auto p : pipes) {
+            const auto left = engine::vec2(-1.0f, 0.0f);
+            auto velocity = left * FLOOR_SPEED * delta;
+            p->transform.translate += velocity;
+
+            if (p->transform.translate.x <= -170.0f) {
+                p->transform.translate.x +=
+                    170.0f * (PIPE_COUNT / 2.f);
+            }
+        }
+    }
+};
+
 class MainScene : public engine::Scene {
 public:
     Background bg;
     Bird bird;
     Ground g1;
     Score score;
+    Pipes pipes;
 
     MainScene() {
         objects.push_back(&bg);
-        objects.push_back(&score);
         objects.push_back(&bird);
+        objects.push_back(&pipes);
+        objects.push_back(&score);
         objects.push_back(&g1);
     }
 };
