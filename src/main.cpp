@@ -72,6 +72,10 @@ class Ground : public engine::Object {
     constexpr static int SPRITE_SIZE = 2;
     std::array<std::unique_ptr<engine::component::Sprite>, SPRITE_SIZE> sprites;
 
+    // physics stuff
+    engine::component::Physics physics;
+        engine::component::collision::Rectangle collisionRect;
+
 public:
     Ground() : engine::Object("Ground")
     {
@@ -86,6 +90,10 @@ public:
             sprites[i]->transform.translate.x() = i * 336;
             components.push_back(sprites[i].get());
         }
+
+        collisionRect.size = {336.0f, 112.0f};
+        physics.collisionShapes.push_back(collisionRect);
+        components.push_back(&physics);
     }
 
     void update(float delta) override {
