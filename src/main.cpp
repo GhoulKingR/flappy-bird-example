@@ -69,8 +69,12 @@ class Ground : public engine::Object
     constexpr static int SPRITE_SIZE = 2;
     std::vector<engine::component::Sprite> sprites;
 
+    engine::component::Physics physics;
+    engine::component::collision::Box hitBox;
+
 public:
-    Ground() : engine::Object("Ground")
+    Ground()
+    : engine::Object("Ground"), hitBox(*this)
     {
         transform.translate = {0, -200};
         sprites.reserve(SPRITE_SIZE);
@@ -83,6 +87,10 @@ public:
             ref.transform.translate.x = i * 336;
             components.push_back(ref);
         }
+
+        hitBox.size = {336, 112};
+        physics.collisionShapes.push_back(hitBox);
+        components.push_back(physics);
     }
 
     void update(float delta) override
