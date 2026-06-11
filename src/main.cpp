@@ -95,8 +95,7 @@ public:
 
             if (s.transform.translate.x <= -336.0f)
             {
-                s.transform.translate +=
-                    engine::vec2{336.0f * 2.f, 0.0f};
+                s.transform.translate += engine::vec2{336.0f * 2.f, 0.0f};
             }
         }
     }
@@ -162,9 +161,7 @@ public:
         for (int i = 0; i < PIPE_COUNT; i++)
         {
             auto &ref = pipes.emplace_back(
-                52, 320,
-                std::vector<std::filesystem::path>{
-                    "assets/sprites/pipe-red.png"});
+                52, 320, std::vector<std::filesystem::path>{ "assets/sprites/pipe-red.png" });
             ref.transform.rotate = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x = static_cast<int>(i / 2) * SPACING - 100.0f;
@@ -199,11 +196,11 @@ public:
 
     MainScene()
     {
-        objects.push_back(&bg);
-        objects.push_back(&bird);
-        objects.push_back(&pipes);
-        objects.push_back(&score);
-        objects.push_back(&g1);
+        objects.push_back(bg);
+        objects.push_back(bird);
+        objects.push_back(pipes);
+        objects.push_back(score);
+        objects.push_back(g1);
     }
 };
 
