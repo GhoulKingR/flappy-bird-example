@@ -21,11 +21,11 @@ if (SANITIZER)
     target_compile_options(${PROJECT_NAME} PRIVATE
         -g
         -O0
-        -fsanitize=address
+        -fsanitize=address,undefined
         -fno-omit-frame-pointer
     )
     target_link_options(${PROJECT_NAME} PRIVATE
-        -fsanitize=address
+        -fsanitize=address,undefined
     )
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE
