@@ -26,12 +26,12 @@ public:
     Bird() : engine::Object("Bird")
     {
         transform.translate = {-100, 64};
-        components.push_back(sprite);
-        components.push_back(timer);
+        components.push_back(&sprite);
+        components.push_back(&timer);
 
         hitBox.size                 = {32.0f, 24.0f};
         physics.collisionShapes.push_back(&hitBox);
-        components.push_back(physics);
+        components.push_back(&physics);
     }
 
     constexpr static float GRAVITY_SCALE = 40.0f;
@@ -72,7 +72,7 @@ class Background : public engine::Object
 public:
     Background() : engine::Object("Background")
     {
-        components.push_back(sprite);
+        components.push_back(&sprite);
     }
 };
 
@@ -97,11 +97,11 @@ public:
                 336, 112,
                 std::vector<std::filesystem::path>{"assets/sprites/base.png"});
             ref.transform.translate.x = i * 336;
-            components.push_back(ref);
+            components.push_back(&ref);
         }
         hitBox.size = engine::vec2{336.0f, 112.0f};
         physics.collisionShapes.push_back(&hitBox);
-        components.push_back(physics);
+        components.push_back(&physics);
     }
 
     void update(float delta) override
@@ -147,7 +147,7 @@ public:
                     "assets/sprites/8.png",
                     "assets/sprites/9.png",
                 });
-            components.push_back(ref);
+            components.push_back(&ref);
         }
         sprites[0].transform.translate.x = -11;
         sprites[1].transform.translate.x = 11;
@@ -180,7 +180,7 @@ public:
             ref.transform.rotate = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x = static_cast<int>(i / 2) * SPACING - 100.0f;
-            components.push_back(ref);
+            components.push_back(&ref);
         }
     }
 
@@ -210,11 +210,11 @@ public:
 
     MainScene()
     {
-        objects.push_back(bg);
-        objects.push_back(bird);
-        objects.push_back(pipes);
-        objects.push_back(score);
-        objects.push_back(g1);
+        objects.push_back(&bg);
+        objects.push_back(&bird);
+        objects.push_back(&pipes);
+        objects.push_back(&score);
+        objects.push_back(&g1);
     }
 };
 
