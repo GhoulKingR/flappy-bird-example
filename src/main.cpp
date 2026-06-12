@@ -1,10 +1,8 @@
 #include "components.hpp"
 #include "controls.hpp"
-#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <initializer_list>
-#include <memory>
 #include <objects.hpp>
 #include <scene.hpp>
 #include <engine.hpp>
@@ -36,11 +34,9 @@ public:
         {
             velocity.y = 250.0f;
             sprite.current_texture = 2;
-
             timer.setTimeout([this]()
                              { sprite.current_texture--; }, 500, 2);
         }
-
         const auto gravity = physics.gravity;
         velocity.y += -gravity * GRAVITY_SCALE * deltaTime;
         transform.translate += velocity * deltaTime;
@@ -67,18 +63,16 @@ constexpr float FLOOR_SPEED = 150.0f;
 class Ground : public engine::Object
 {
     constexpr static int SPRITE_SIZE = 2;
-    std::vector<engine::component::Sprite> sprites;
-
-    engine::component::Physics physics;
-    engine::component::collision::Box hitBox;
+    std::vector<engine::component::Sprite>  sprites;
+    engine::component::Physics              physics;
+    engine::component::collision::Box       hitBox{this};
 
 public:
     Ground()
-    : engine::Object("Ground"), hitBox(*this)
+    : engine::Object("Ground")
     {
         transform.translate = {0, -200};
         sprites.reserve(SPRITE_SIZE);
-
         for (int i = 0; i < SPRITE_SIZE; i++)
         {
             auto &ref = sprites.emplace_back(
@@ -87,9 +81,8 @@ public:
             ref.transform.translate.x = i * 336;
             components.push_back(ref);
         }
-
-        hitBox.size = {336, 112};
-        physics.collisionShapes.push_back(hitBox);
+        hitBox.size = engine::vec2{336.0f, 112.0f};
+        physics.collisionShapes.push_back(&hitBox);
         components.push_back(physics);
     }
 
@@ -97,10 +90,9 @@ public:
     {
         for (auto &s : sprites)
         {
-            const auto left = engine::vec2(-1.0f, 0.0f);
-            auto velocity = left * FLOOR_SPEED * delta;
-            s.transform.translate += velocity;
-
+            const auto left         = engine::vec2(-1.0f, 0.0f);
+            auto velocity           = left * FLOOR_SPEED * delta;
+            s.transform.translate   += velocity;
             if (s.transform.translate.x <= -336.0f)
             {
                 s.transform.translate += engine::vec2{336.0f * 2.f, 0.0f};
@@ -115,12 +107,12 @@ class Score : public engine::Object
 
 public:
     std::vector<engine::component::Sprite> sprites;
+    uint8_t score = 23;
 
     Score() : engine::Object("Score")
     {
         transform.translate.y = 222;
         sprites.reserve(DIGITS);
-
         for (int i = 0; i < DIGITS; i++)
         {
             auto &ref = sprites.emplace_back(
@@ -139,12 +131,10 @@ public:
                 });
             components.push_back(ref);
         }
-
         sprites[0].transform.translate.x = -11;
         sprites[1].transform.translate.x = 11;
     }
 
-    uint8_t score = 23;
     void update(float) override
     {
         if (score < 99)
@@ -165,7 +155,6 @@ public:
     Pipes() : engine::Object("Pipes")
     {
         pipes.reserve(PIPE_COUNT);
-
         for (int i = 0; i < PIPE_COUNT; i++)
         {
             auto &ref = pipes.emplace_back(
@@ -184,7 +173,6 @@ public:
             const auto left = engine::vec2(-1.0f, 0.0f);
             auto velocity = left * FLOOR_SPEED * delta;
             p.transform.translate += velocity;
-
             if (p.transform.translate.x <= -170.0f)
             {
                 p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
@@ -216,10 +204,8 @@ int main()
 {
     engine::init("Flappy bird", 288, 512);
     engine::controls::registerAction("fly", SDLK_SPACE);
-
     MainScene scn;
     engine::loadScene(&scn);
-
     engine::start();
     engine::cleanup();
     return EXIT_SUCCESS;
