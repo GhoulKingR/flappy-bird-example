@@ -1,5 +1,7 @@
 #include "components.hpp"
 #include "controls.hpp"
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <initializer_list>
@@ -12,18 +14,24 @@
 
 class Bird : public engine::Object
 {
-    engine::component::Physics physics;
-    engine::component::Timer timer;
-    engine::component::Sprite sprite{32, 24, {
-        "assets/sprites/redbird-upflap.png", "assets/sprites/redbird-midflap.png", "assets/sprites/redbird-downflap.png"}};
+    engine::component::Timer            timer;
+    engine::component::Sprite           sprite{ 32, 24, {
+                                                "assets/sprites/redbird-upflap.png",
+                                                "assets/sprites/redbird-midflap.png",
+                                                "assets/sprites/redbird-downflap.png"}};
+    engine::component::Physics          physics;
+    engine::component::collision::Box   hitBox {this};
 
 public:
     Bird() : engine::Object("Bird")
     {
         transform.translate = {-100, 64};
         components.push_back(sprite);
-        components.push_back(physics);
         components.push_back(timer);
+
+        hitBox.size                 = {32.0f, 24.0f};
+        physics.collisionShapes.push_back(&hitBox);
+        components.push_back(physics);
     }
 
     constexpr static float GRAVITY_SCALE = 40.0f;
@@ -37,8 +45,18 @@ public:
             timer.setTimeout([this]()
                              { sprite.current_texture--; }, 500, 2);
         }
-        const auto gravity = physics.gravity;
-        velocity.y += -gravity * GRAVITY_SCALE * deltaTime;
+
+        auto coll = hitBox.checkCollision();
+        if (coll == nullptr)
+        {
+            const auto gravity   = physics.gravity;
+            velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+        }
+        else
+        {
+            velocity.y = std::max(0.0f, velocity.y);
+        }
+
         transform.translate += velocity * deltaTime;
     }
 };
