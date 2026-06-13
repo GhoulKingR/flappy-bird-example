@@ -200,14 +200,13 @@ public:
 
 class MainScene : public engine::Scene
 {
-    Background bg;
     Bird bird;
     Ground g1;
     Score score;
     Pipes pipes;
 
 public:
-    MainScene()
+    MainScene(Background &bg)
     {
         objects.push_back(&bg);
         objects.push_back(&bird);
@@ -217,12 +216,46 @@ public:
     }
 };
 
+class Message : public engine::Object
+{
+    engine::component::Sprite sprite {184, 267, {"assets/sprites/message.png"}};
+
+public:
+    Message() : engine::Object("Background message")
+    { components.push_back(&sprite); }
+};
+
+class LoadScene : public engine::Scene
+{
+    Message msg;
+    MainScene &mscn;
+
+public:
+    LoadScene(Background &bg, MainScene &scn)
+        : mscn(scn)
+    {
+        objects.push_back(&bg);
+        objects.push_back(&msg);
+    }
+
+    void update(float) override
+    {
+        if (engine::controls::isActionJustPressed("ui_accept"))
+            engine::loadScene(&mscn);
+    }
+};
+
 int main()
 {
     engine::init("Flappy bird", 288, 512);
     engine::controls::registerAction("fly", SDLK_SPACE);
-    MainScene scn;
-    engine::loadScene(&scn);
+    engine::controls::registerAction("ui_accept", SDLK_RETURN);
+
+    Background bg;
+    MainScene scn(bg);
+    LoadScene scn0(bg, scn);
+    engine::loadScene(&scn0);
+
     engine::start();
     engine::cleanup();
     return EXIT_SUCCESS;
