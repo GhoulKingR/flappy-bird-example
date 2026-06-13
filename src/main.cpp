@@ -11,6 +11,7 @@
 #include <engine.hpp>
 #include <cstdlib>
 #include <string>
+#include <unistd.h>
 #include <variant>
 #include <vector>
 
@@ -27,9 +28,10 @@ class Bird : public engine::Object
     engine::vec2<float>                 velocity{0, 0};
     engine::component::Physics          physics;
     engine::component::collision::Box   hitBox {this};
+    bool &gameover;
 
 public:
-    Bird() : engine::Object("Bird")
+    Bird(bool &gameover) : engine::Object("Bird"), gameover(gameover)
     {
         transform.translate = {-100, 64};
         components.push_back(&sprite);
@@ -42,24 +44,33 @@ public:
 
     void update(float deltaTime) override
     {
-        if (engine::controls::isActionJustPressed("fly"))
+        if (!gameover)
         {
-            velocity.y = 250.0f;
-            sprite.current_texture = 2;
-            timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
-        }
-
-        auto coll = hitBox.checkCollision();
-        std::visit([this, deltaTime](auto &_c){
-            if (_c == nullptr)
+            if (engine::controls::isActionJustPressed("fly"))
             {
-                const auto gravity   = physics.gravity;
-                velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                velocity.y = 250.0f;
+                sprite.current_texture = 2;
+                timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
             }
-            else
-                velocity.y = std::max(0.0f, velocity.y);
-        }, coll);
-        transform.translate += velocity * deltaTime;
+
+            auto coll = hitBox.checkCollision();
+            std::visit([this, deltaTime](auto &_c){
+                if (_c == nullptr)
+                {
+                    const auto gravity   = physics.gravity;
+                    velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                }
+                else
+                    gameover = true;
+            }, coll);
+            transform.translate += velocity * deltaTime;
+        }
+    }
+
+    void reset()
+    {
+        transform.translate = {-100, 64};
+        velocity = {0, 0};
     }
 };
 
@@ -77,9 +88,10 @@ class Ground : public engine::Object
     std::vector<engine::component::Sprite>  sprites;
     engine::component::Physics              physics;
     engine::component::collision::Box       hitBox{this};
+    bool &gameover;
 
 public:
-    Ground() : engine::Object("Ground")
+    Ground(bool &gameover) : engine::Object("Ground"), gameover(gameover)
     {
         transform.translate = {0, -200};
         sprites.reserve(SPRITE_SIZE);
@@ -96,13 +108,16 @@ public:
 
     void update(float delta) override
     {
-        for (auto &s : sprites)
+        if (!gameover)
         {
-            const auto left          = engine::vec2(-1.0f, 0.0f);
-            auto velocity            = left * FLOOR_SPEED * delta;
-            s.transform.translate   += velocity;
-            if (s.transform.translate.x <= -336.0f)
-                s.transform.translate.x += 336.0f * 2.f;
+            for (auto &s : sprites)
+            {
+                const auto left          = engine::vec2(-1.0f, 0.0f);
+                auto velocity            = left * FLOOR_SPEED * delta;
+                s.transform.translate   += velocity;
+                if (s.transform.translate.x <= -336.0f)
+                    s.transform.translate.x += 336.0f * 2.f;
+            }
         }
     }
 };
@@ -111,9 +126,9 @@ class Score : public engine::Object
 {
     static constexpr int DIGITS = 2;
     std::vector<engine::component::Sprite> sprites;
-    uint8_t score = 23;
 
 public:
+    uint8_t score = 0;
     Score() : engine::Object("Score")
     {
         transform.translate.y = 222;
@@ -142,7 +157,7 @@ public:
 
     void update(float) override
     {
-        if (score < 99)
+        if (score < 100)
         {
             sprites[0].current_texture = static_cast<uint32_t>(score / 10);
             sprites[1].current_texture = static_cast<uint32_t>(score % 10);
@@ -157,9 +172,11 @@ class Pipes : public engine::Object
     engine::component::Physics physics;
     std::vector<engine::component::Sprite> pipes;
     std::vector<engine::component::collision::Box> collisionBoxes;
+    Score &score;
+    bool &gameover;
 
 public:
-    Pipes() : engine::Object("Pipes")
+    Pipes(Score &score, bool &gameover) : engine::Object("Pipes"), score(score), gameover(gameover)
     {
         pipes.reserve(PIPE_COUNT);
         collisionBoxes.reserve(PIPE_COUNT);
@@ -171,10 +188,10 @@ public:
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
             components.push_back(&ref);
 
-            auto &boxRef = collisionBoxes.emplace_back(this);
-            boxRef.size = {52, 320};
-            boxRef.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
-            boxRef.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
+            auto &boxRef                    = collisionBoxes.emplace_back(this);
+            boxRef.size                     = {52, 320};
+            boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
+            boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
             physics.collisionShapes.push_back(&boxRef);
         }
         components.push_back(&physics);
@@ -182,28 +199,62 @@ public:
 
     void update(float delta) override
     {
-        for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
+        if (!gameover)
         {
-            const auto left = engine::vec2(-1.0f, 0.0f);
-            auto velocity = left * FLOOR_SPEED * delta;
+            auto add = 0.0f;
+            for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
+            {
+                const auto left = engine::vec2(-1.0f, 0.0f);
+                auto velocity = left * FLOOR_SPEED * delta;
 
-            p.transform.translate += velocity;
-            if (p.transform.translate.x <= -170.0f)
-                p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                p.transform.translate += velocity;
+                if (p.transform.translate.x <= -170.0f)
+                {
+                    p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                    add += 0.5f;
+                }
 
-            b.transform.translate += velocity;
-            if (b.transform.translate.x <= -170.0f)
-                b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                b.transform.translate += velocity;
+                if (b.transform.translate.x <= -170.0f)
+                    b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+            }
+            score.score += add;
+        }
+    }
+
+    void reset()
+    {
+        for (int i = 0; i < PIPE_COUNT; i++)
+        {
+            auto &ref                       = pipes[i];
+            ref.transform.rotate            = i % 2 ? 180.0f : 0.f;
+            ref.transform.translate.y       = i % 2 ? 256.0f : -256.0f;
+            ref.transform.translate.x       = static_cast<int>(i / 2) * SPACING - 100.0f;
+            auto &boxRef                    = collisionBoxes[i];
+            boxRef.size                     = {52, 320};
+            boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
+            boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
         }
     }
 };
 
+class Gameover : public engine::Object
+{
+    engine::component::Sprite sprite{192, 42, {"assets/sprites/gameover.png"}};
+
+public:
+    Gameover() : engine::Object("Gameover")
+    { components.push_back(&sprite); }
+};
+
 class MainScene : public engine::Scene
 {
-    Bird bird;
-    Ground g1;
-    Score score;
-    Pipes pipes;
+    bool        gameover    = false;
+    Bird        bird        {gameover};
+    Ground      g1          {gameover};
+    Score       score;
+    Pipes       pipes       {score, gameover};
+    Gameover    gv;
 
 public:
     MainScene(Background &bg)
@@ -213,6 +264,28 @@ public:
         objects.push_back(&pipes);
         objects.push_back(&score);
         objects.push_back(&g1);
+    }
+
+    void update(float) override
+    {
+        static bool alreadyover = false;
+        if (!alreadyover && gameover)
+        {
+            alreadyover = true;
+            objects.push_back(&gv);
+        }
+        else
+        {
+            if (engine::controls::isActionJustPressed("ui_accept"))
+            {
+                alreadyover = false;
+                std::erase(objects, &gv);
+                score.score = 0;
+                bird.reset();
+                pipes.reset();
+                gameover = false;
+            }
+        }
     }
 };
 
@@ -231,8 +304,7 @@ class LoadScene : public engine::Scene
     MainScene &mscn;
 
 public:
-    LoadScene(Background &bg, MainScene &scn)
-        : mscn(scn)
+    LoadScene(Background &bg, MainScene &scn) : mscn(scn)
     {
         objects.push_back(&bg);
         objects.push_back(&msg);
