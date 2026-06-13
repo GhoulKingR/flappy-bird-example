@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <objects.hpp>
+#include <ranges>
 #include <scene.hpp>
 #include <engine.hpp>
 #include <cstdlib>
@@ -153,12 +154,15 @@ class Pipes : public engine::Object
 {
     static constexpr int PIPE_COUNT = 4;
     static constexpr float SPACING = 175;
+    engine::component::Physics physics;
     std::vector<engine::component::Sprite> pipes;
+    std::vector<engine::component::collision::Box> collisionBoxes;
 
 public:
     Pipes() : engine::Object("Pipes")
     {
         pipes.reserve(PIPE_COUNT);
+        collisionBoxes.reserve(PIPE_COUNT);
         for (int i = 0; i < PIPE_COUNT; i++)
         {
             auto &ref                   = pipes.emplace_back(52, 320, std::vector<std::filesystem::path>{ "assets/sprites/pipe-red.png" });
@@ -166,18 +170,30 @@ public:
             ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
             components.push_back(&ref);
+
+            auto &boxRef = collisionBoxes.emplace_back(this);
+            boxRef.size = {52, 320};
+            boxRef.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
+            boxRef.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
+            physics.collisionShapes.push_back(&boxRef);
         }
+        components.push_back(&physics);
     }
 
     void update(float delta) override
     {
-        for (auto &p : pipes)
+        for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
         {
             const auto left = engine::vec2(-1.0f, 0.0f);
             auto velocity = left * FLOOR_SPEED * delta;
+
             p.transform.translate += velocity;
             if (p.transform.translate.x <= -170.0f)
                 p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+
+            b.transform.translate += velocity;
+            if (b.transform.translate.x <= -170.0f)
+                b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
         }
     }
 };
