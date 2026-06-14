@@ -19,11 +19,10 @@ constexpr static float  FLOOR_SPEED = 150.0f;
 
 class Bird : public engine::Object
 {
-    std::array<engine::Texture, 3> textures{
-        "assets/sprites/redbird-upflap.png",
-        "assets/sprites/redbird-midflap.png",
-        "assets/sprites/redbird-downflap.png"
-    };
+    // components loaded here so they can persist for the lifetime of the component
+    std::array<engine::Texture, 3> textures{"assets/sprites/redbird-upflap.png",
+                                            "assets/sprites/redbird-midflap.png",
+                                            "assets/sprites/redbird-downflap.png"};
 
     engine::component::Timer            timer;
     engine::component::Sprite           sprite          { 32, 24, {&textures[0], &textures[1], &textures[2]} };
@@ -31,11 +30,14 @@ class Bird : public engine::Object
     engine::vec2<float>                 velocity        {0, 0};
     engine::component::Physics          physics;
     engine::component::collision::Box   hitBox          {this};
-    bool &gameover;
+
+    // reference to MainScene::gameover. A shared scene-wide variable
+    bool &gameover; 
 
 public:
     Bird(bool &gameover) : engine::Object("Bird"), gameover(gameover)
     {
+        // register components as pointers
         transform.translate = {-100, 64};
         components.push_back(&sprite);
         components.push_back(&timer);
@@ -70,36 +72,49 @@ public:
         }
     }
 
+    // reset bird when called
     void reset()
     {
         transform.translate = {-100, 64};
-        velocity = {0, 0};
+        velocity            = {0, 0};
     }
 };
 
 class Background : public engine::Object
 {
+    // components
     std::array<engine::Texture, 2>  textures{"assets/sprites/background-night.png",
                                              "assets/sprites/background-day.png"};
     engine::component::Sprite       sprite  {288, 512, {&textures[0], &textures[1]}};
+
 public:
+    // init stuffs
     Background() : engine::Object("Background")
     {
         components.push_back(&sprite);
-        sprite.transform.scale.y = -1.0f;
+        sprite.transform.scale.y = -1.0f;   // for some reason the background sprite now appears upside down
+                                            // after a recent commit.
     }
 };
 
 class Ground : public engine::Object
 {
+    // amount of sprites to use for the infinite moving floor implementation
     constexpr static int    SPRITE_SIZE = 2;
-    std::vector<engine::component::Sprite>  sprites;
+    
+    // components
+    std::vector<engine::component::Sprite>  sprites;    // TODO (Maybe?): delete move and copy constructors for sprite.
+                                                        // Tho there isn't really a need to because the reason I would've originally
+                                                        // had for deleting the constructors has been solved by the new (as of now)
+                                                        // `Texture` class.
     engine::component::Physics              physics;
     engine::component::collision::Box       hitBox{this};
     engine::Texture                         groundTexture{"assets/sprites/base.png"};
-    bool &gameover;
+
+    bool &gameover; // MainScene::gameover reference
 
 public:
+    // initialize stuffs
     Ground(bool &gameover) : engine::Object("Ground"), gameover(gameover)
     {
         transform.translate = {0, -200};
@@ -133,7 +148,7 @@ public:
 
 class Score : public engine::Object
 {
-    static constexpr int DIGITS = 2;
+    static constexpr int DIGITS = 2;    // only 2 digits for the score. So from 00 - 99
     std::vector<engine::component::Sprite>  sprites;
     std::array<engine::Texture, 10>         textures{"assets/sprites/0.png",
                                                      "assets/sprites/1.png",
@@ -184,7 +199,8 @@ public:
 class Pipes : public engine::Object
 {
     static constexpr int PIPE_COUNT = 4;
-    static constexpr float SPACING = 175;
+    static constexpr float SPACING = 175;   // distance between pipes
+
     engine::component::Physics                      physics;
     std::vector<engine::component::Sprite>          pipes;
     std::vector<engine::component::collision::Box>  collisionBoxes;
@@ -218,6 +234,8 @@ public:
     {
         if (!gameover)
         {
+            // move all the ppes back at the same speed, and move them to the other side of the screen
+            // when it crosses the screen behind the player.
             auto add = 0.0f;
             for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
             {
@@ -228,9 +246,11 @@ public:
                 if (p.transform.translate.x <= -170.0f)
                 {
                     p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
-                    add += 0.5f;
+                    add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
+                                    // so here it is.
                 }
 
+                // the collision box should also follow the pipes
                 b.transform.translate += velocity;
                 if (b.transform.translate.x <= -170.0f)
                     b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
@@ -239,6 +259,8 @@ public:
         }
     }
 
+    // reset the pipes to the exact starting positions (Duplicate of what's
+    // happening in the constructor, but without initializations)
     void reset()
     {
         for (int i = 0; i < PIPE_COUNT; i++)
@@ -284,6 +306,8 @@ public:
         objects.push_back(&g1);
     }
 
+    // primary purpose is just for tracking gameover state
+    // and handling that aspect.
     void update(float) override
     {
         static bool alreadyover = false;
@@ -294,7 +318,7 @@ public:
         }
         else if (alreadyover)
         {
-            if (engine::controls::isActionJustPressed("ui_accept") || engine::controls::isActionJustPressed("fly"))
+            if (engine::controls::isActionJustPressed("ui_accept"))
             {
                 alreadyover = false;
                 std::erase(objects, &gv);
@@ -309,6 +333,7 @@ public:
 
 class Message : public engine::Object
 {
+    // components loaded here so they can persist for the lifetime of the component
     engine::Texture texture {"assets/sprites/message.png"};
     engine::component::Sprite sprite {184, 267, {&texture}};
 
@@ -317,6 +342,7 @@ public:
     { components.push_back(&sprite); }
 };
 
+// Initial load screen. The first scene you see when you open the game
 class LoadScene : public engine::Scene
 {
     Message msg;
@@ -331,23 +357,27 @@ public:
 
     void update(float) override
     {
-        if (engine::controls::isActionJustPressed("ui_accept") || engine::controls::isActionJustPressed("fly"))
+        // press enter or space to start playing the game
+        if (engine::controls::isActionJustPressed("ui_accept"))
             engine::loadScene(&mscn);
     }
 };
 
 int main()
 {
-    engine::init("Flappy bird", 288, 512);
+    // initialize the engine and register some key bindings
+    engine::init("Flappy bird", 288, 512);  // TODO: allow passing window flags from here. Likely end up with a custom flag
+                                            // setup because I have to also be able to translate the features to the engine's gameview
     engine::controls::registerAction("fly", SDLK_SPACE);
     engine::controls::registerAction("ui_accept", SDLK_RETURN);
+    engine::controls::registerAction("ui_accept", SDLK_SPACE);
 
-    Background bg;
+    Background bg;  // background image. Since it exists in every scene, it's here
     MainScene scn(bg);
     LoadScene scn0(bg, scn);
     engine::loadScene(&scn0);
 
-    engine::start();
+    engine::start();    // the game loop and every runtime stuff happens inside here
     engine::cleanup();
     return EXIT_SUCCESS;
 }
