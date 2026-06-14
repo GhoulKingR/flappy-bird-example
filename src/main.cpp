@@ -1,6 +1,5 @@
 #include "components.hpp"
 #include "controls.hpp"
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -274,7 +273,7 @@ public:
             alreadyover = true;
             objects.push_back(&gv);
         }
-        else
+        else if (alreadyover)
         {
             if (engine::controls::isActionJustPressed("ui_accept"))
             {
