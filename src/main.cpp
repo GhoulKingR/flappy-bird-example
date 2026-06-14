@@ -1,8 +1,9 @@
 #include "components.hpp"
 #include "controls.hpp"
+#include "textures.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <initializer_list>
 #include <objects.hpp>
 #include <ranges>
@@ -18,15 +19,18 @@ constexpr static float  FLOOR_SPEED = 150.0f;
 
 class Bird : public engine::Object
 {
+    std::array<engine::Texture, 3> textures{
+        "assets/sprites/redbird-upflap.png",
+        "assets/sprites/redbird-midflap.png",
+        "assets/sprites/redbird-downflap.png"
+    };
+
     engine::component::Timer            timer;
-    engine::component::Sprite           sprite{ 32, 24, {
-                                                "assets/sprites/redbird-upflap.png",
-                                                "assets/sprites/redbird-midflap.png",
-                                                "assets/sprites/redbird-downflap.png"}};
-    constexpr static float              GRAVITY_SCALE = 40.0f;
-    engine::vec2<float>                 velocity{0, 0};
+    engine::component::Sprite           sprite          { 32, 24, {&textures[0], &textures[1], &textures[2]} };
+    constexpr static float              GRAVITY_SCALE   = 40.0f;
+    engine::vec2<float>                 velocity        {0, 0};
     engine::component::Physics          physics;
-    engine::component::collision::Box   hitBox {this};
+    engine::component::collision::Box   hitBox          {this};
     bool &gameover;
 
 public:
@@ -75,10 +79,15 @@ public:
 
 class Background : public engine::Object
 {
-    engine::component::Sprite sprite {288, 512, {"assets/sprites/background-night.png", "assets/sprites/background-day.png"}};
+    std::array<engine::Texture, 2>  textures{"assets/sprites/background-night.png",
+                                             "assets/sprites/background-day.png"};
+    engine::component::Sprite       sprite  {288, 512, {&textures[0], &textures[1]}};
 public:
     Background() : engine::Object("Background")
-    { components.push_back(&sprite); }
+    {
+        components.push_back(&sprite);
+        sprite.transform.scale.y = -1.0f;
+    }
 };
 
 class Ground : public engine::Object
@@ -87,6 +96,7 @@ class Ground : public engine::Object
     std::vector<engine::component::Sprite>  sprites;
     engine::component::Physics              physics;
     engine::component::collision::Box       hitBox{this};
+    engine::Texture                         groundTexture{"assets/sprites/base.png"};
     bool &gameover;
 
 public:
@@ -96,7 +106,7 @@ public:
         sprites.reserve(SPRITE_SIZE);
         for (int i = 0; i < SPRITE_SIZE; i++)
         {
-            auto &ref                   = sprites.emplace_back(336, 112, std::vector<std::filesystem::path>{"assets/sprites/base.png"});
+            auto &ref                   = sprites.emplace_back(336, 112, std::vector{&groundTexture});
             ref.transform.translate.x   = i * 336;
             components.push_back(&ref);
         }
@@ -124,7 +134,17 @@ public:
 class Score : public engine::Object
 {
     static constexpr int DIGITS = 2;
-    std::vector<engine::component::Sprite> sprites;
+    std::vector<engine::component::Sprite>  sprites;
+    std::array<engine::Texture, 10>         textures{"assets/sprites/0.png",
+                                                     "assets/sprites/1.png",
+                                                     "assets/sprites/2.png",
+                                                     "assets/sprites/3.png",
+                                                     "assets/sprites/4.png",
+                                                     "assets/sprites/5.png",
+                                                     "assets/sprites/6.png",
+                                                     "assets/sprites/7.png",
+                                                     "assets/sprites/8.png",
+                                                     "assets/sprites/9.png"};
 
 public:
     uint8_t score = 0;
@@ -134,20 +154,17 @@ public:
         sprites.reserve(DIGITS);
         for (int i = 0; i < DIGITS; i++)
         {
-            auto &ref = sprites.emplace_back(
-                24, 36,
-                std::vector<std::filesystem::path>{
-                    "assets/sprites/0.png",
-                    "assets/sprites/1.png",
-                    "assets/sprites/2.png",
-                    "assets/sprites/3.png",
-                    "assets/sprites/4.png",
-                    "assets/sprites/5.png",
-                    "assets/sprites/6.png",
-                    "assets/sprites/7.png",
-                    "assets/sprites/8.png",
-                    "assets/sprites/9.png",
-                });
+            auto &ref = sprites.emplace_back(24, 36,
+                                             std::vector{&textures[0],
+                                                         &textures[1],
+                                                         &textures[2],
+                                                         &textures[3],
+                                                         &textures[4],
+                                                         &textures[5],
+                                                         &textures[6],
+                                                         &textures[7],
+                                                         &textures[8],
+                                                         &textures[9]});
             components.push_back(&ref);
         }
         sprites[0].transform.translate.x = -11;
@@ -168,11 +185,12 @@ class Pipes : public engine::Object
 {
     static constexpr int PIPE_COUNT = 4;
     static constexpr float SPACING = 175;
-    engine::component::Physics physics;
-    std::vector<engine::component::Sprite> pipes;
-    std::vector<engine::component::collision::Box> collisionBoxes;
-    Score &score;
-    bool &gameover;
+    engine::component::Physics                      physics;
+    std::vector<engine::component::Sprite>          pipes;
+    std::vector<engine::component::collision::Box>  collisionBoxes;
+    engine::Texture                                 texture {"assets/sprites/pipe-red.png" };
+    Score&                                          score;
+    bool&                                           gameover;
 
 public:
     Pipes(Score &score, bool &gameover) : engine::Object("Pipes"), score(score), gameover(gameover)
@@ -181,7 +199,7 @@ public:
         collisionBoxes.reserve(PIPE_COUNT);
         for (int i = 0; i < PIPE_COUNT; i++)
         {
-            auto &ref                   = pipes.emplace_back(52, 320, std::vector<std::filesystem::path>{ "assets/sprites/pipe-red.png" });
+            auto &ref                   = pipes.emplace_back(52, 320, std::vector{ &texture });
             ref.transform.rotate        = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
@@ -239,7 +257,8 @@ public:
 
 class Gameover : public engine::Object
 {
-    engine::component::Sprite sprite{192, 42, {"assets/sprites/gameover.png"}};
+    engine::Texture texture {"assets/sprites/gameover.png"};
+    engine::component::Sprite sprite{192, 42, {&texture}};
 
 public:
     Gameover() : engine::Object("Gameover")
@@ -275,7 +294,7 @@ public:
         }
         else if (alreadyover)
         {
-            if (engine::controls::isActionJustPressed("ui_accept"))
+            if (engine::controls::isActionJustPressed("ui_accept") || engine::controls::isActionJustPressed("fly"))
             {
                 alreadyover = false;
                 std::erase(objects, &gv);
@@ -290,7 +309,8 @@ public:
 
 class Message : public engine::Object
 {
-    engine::component::Sprite sprite {184, 267, {"assets/sprites/message.png"}};
+    engine::Texture texture {"assets/sprites/message.png"};
+    engine::component::Sprite sprite {184, 267, {&texture}};
 
 public:
     Message() : engine::Object("Background message")
@@ -311,7 +331,7 @@ public:
 
     void update(float) override
     {
-        if (engine::controls::isActionJustPressed("ui_accept"))
+        if (engine::controls::isActionJustPressed("ui_accept") || engine::controls::isActionJustPressed("fly"))
             engine::loadScene(&mscn);
     }
 };
