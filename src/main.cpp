@@ -12,7 +12,6 @@
 #include <cstdlib>
 #include <string>
 #include <unistd.h>
-#include <variant>
 #include <vector>
 
 constexpr static float  FLOOR_SPEED = 150.0f;
@@ -45,31 +44,29 @@ public:
         hitBox.size                 = {32.0f, 24.0f};
         physics.collisionShapes.push_back(&hitBox);
         components.push_back(&physics);
-    }
 
-    void update(float deltaTime) override
-    {
-        if (!gameover)
-        {
-            if (engine::controls::isActionJustPressed("fly"))
-            {
-                velocity.y = 250.0f;
-                sprite.current_texture = 2;
-                timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
-            }
-
-            auto coll = hitBox.checkCollision();
-            std::visit([this, deltaTime](auto &_c){
-                if (_c == nullptr)
+        update =
+            [this, &gameover](float deltaTime) {
+                if (!gameover)
                 {
-                    const auto gravity   = physics.gravity;
-                    velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                    if (engine::controls::isActionJustPressed("fly"))
+                    {
+                        velocity.y = 250.0f;
+                        sprite.current_texture = 2;
+                        timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
+                    }
+
+                    auto coll = hitBox.checkCollision();
+                    if (coll == nullptr)
+                    {
+                        const auto gravity   = physics.gravity;
+                        velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                    }
+                    else
+                        gameover = true;
+                    transform.translate += velocity * deltaTime;
                 }
-                else
-                    gameover = true;
-            }, coll);
-            transform.translate += velocity * deltaTime;
-        }
+            };
     }
 
     // reset bird when called
@@ -128,21 +125,21 @@ public:
         hitBox.size = engine::vec2{336.0f, 112.0f};
         physics.collisionShapes.push_back(&hitBox);
         components.push_back(&physics);
-    }
 
-    void update(float delta) override
-    {
-        if (!gameover)
-        {
-            for (auto &s : sprites)
-            {
-                const auto left          = engine::vec2(-1.0f, 0.0f);
-                auto velocity            = left * FLOOR_SPEED * delta;
-                s.transform.translate   += velocity;
-                if (s.transform.translate.x <= -336.0f)
-                    s.transform.translate.x += 336.0f * 2.f;
-            }
-        }
+        update = 
+            [this, &gameover](float delta) {
+                if (!gameover)
+                {
+                    for (auto &s : sprites)
+                    {
+                        const auto left          = engine::vec2(-1.0f, 0.0f);
+                        auto velocity            = left * FLOOR_SPEED * delta;
+                        s.transform.translate   += velocity;
+                        if (s.transform.translate.x <= -336.0f)
+                            s.transform.translate.x += 336.0f * 2.f;
+                    }
+                }
+            };
     }
 };
 
@@ -184,15 +181,15 @@ public:
         }
         sprites[0].transform.translate.x = -11;
         sprites[1].transform.translate.x = 11;
-    }
 
-    void update(float) override
-    {
-        if (score < 100)
-        {
-            sprites[0].current_texture = static_cast<uint32_t>(score / 10);
-            sprites[1].current_texture = static_cast<uint32_t>(score % 10);
-        }
+        update =
+            [this](float) {
+                if (score < 100)
+                {
+                    sprites[0].current_texture = static_cast<uint32_t>(score / 10);
+                    sprites[1].current_texture = static_cast<uint32_t>(score % 10);
+                }
+            };
     }
 };
 
@@ -228,35 +225,35 @@ public:
             physics.collisionShapes.push_back(&boxRef);
         }
         components.push_back(&physics);
-    }
 
-    void update(float delta) override
-    {
-        if (!gameover)
-        {
-            // move all the ppes back at the same speed, and move them to the other side of the screen
-            // when it crosses the screen behind the player.
-            auto add = 0.0f;
-            for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
-            {
-                const auto left = engine::vec2(-1.0f, 0.0f);
-                auto velocity = left * FLOOR_SPEED * delta;
-
-                p.transform.translate += velocity;
-                if (p.transform.translate.x <= -170.0f)
+        update =
+            [this, &gameover, &score](float delta) {
+                if (!gameover)
                 {
-                    p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
-                    add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
-                                    // so here it is.
-                }
+                    // move all the ppes back at the same speed, and move them to the other side of the screen
+                    // when it crosses the screen behind the player.
+                    auto add = 0.0f;
+                    for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
+                    {
+                        const auto left = engine::vec2(-1.0f, 0.0f);
+                        auto velocity = left * FLOOR_SPEED * delta;
 
-                // the collision box should also follow the pipes
-                b.transform.translate += velocity;
-                if (b.transform.translate.x <= -170.0f)
-                    b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
-            }
-            score.score += add;
-        }
+                        p.transform.translate += velocity;
+                        if (p.transform.translate.x <= -170.0f)
+                        {
+                            p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                            add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
+                                            // so here it is.
+                        }
+
+                        // the collision box should also follow the pipes
+                        b.transform.translate += velocity;
+                        if (b.transform.translate.x <= -170.0f)
+                            b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                    }
+                    score.score += add;
+                }
+            };
     }
 
     // reset the pipes to the exact starting positions (Duplicate of what's
@@ -304,30 +301,30 @@ public:
         objects.push_back(&pipes);
         objects.push_back(&score);
         objects.push_back(&g1);
-    }
 
-    // primary purpose is just for tracking gameover state
-    // and handling that aspect.
-    void update(float) override
-    {
-        static bool alreadyover = false;
-        if (!alreadyover && gameover)
-        {
-            alreadyover = true;
-            objects.push_back(&gv);
-        }
-        else if (alreadyover)
-        {
-            if (engine::controls::isActionJustPressed("ui_accept"))
-            {
-                alreadyover = false;
-                std::erase(objects, &gv);
-                score.score = 0;
-                bird.reset();
-                pipes.reset();
-                gameover = false;
-            }
-        }
+        // primary purpose is just for tracking gameover state
+        // and handling that aspect.
+        update =
+            [this](float) {
+                static bool alreadyover = false;
+                if (!alreadyover && gameover)
+                {
+                    alreadyover = true;
+                    objects.push_back(&gv);
+                }
+                else if (alreadyover)
+                {
+                    if (engine::controls::isActionJustPressed("ui_accept"))
+                    {
+                        alreadyover = false;
+                        std::erase(objects, &gv);
+                        score.score = 0;
+                        bird.reset();
+                        pipes.reset();
+                        gameover = false;
+                    }
+                }
+            };
     }
 };
 
@@ -353,13 +350,12 @@ public:
     {
         objects.push_back(&bg);
         objects.push_back(&msg);
-    }
-
-    void update(float) override
-    {
-        // press enter or space to start playing the game
-        if (engine::controls::isActionJustPressed("ui_accept"))
-            engine::loadScene(&mscn);
+        update =
+            [this](float deltaTime){
+                // press enter or space to start playing the game
+                if (engine::controls::isActionJustPressed("ui_accept"))
+                    engine::scene::load(&mscn);
+            };
     }
 };
 
@@ -375,7 +371,7 @@ int main()
     Background bg;  // background image. Since it exists in every scene, it's here
     MainScene scn(bg);
     LoadScene scn0(bg, scn);
-    engine::loadScene(&scn0);
+    engine::scene::load(&scn0);
 
     engine::start();    // the game loop and every runtime stuff happens inside here
     engine::cleanup();
