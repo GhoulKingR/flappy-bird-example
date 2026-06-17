@@ -17,6 +17,8 @@
 
 constexpr static float  FLOOR_SPEED = 150.0f;
 
+namespace ecc = engine::component;
+
 class Bird : public engine::Object
 {
     // components loaded here so they can persist for the lifetime of the component
@@ -24,12 +26,12 @@ class Bird : public engine::Object
                                             "assets/sprites/redbird-midflap.png",
                                             "assets/sprites/redbird-downflap.png"};
 
-    engine::component::Timer            timer;
-    engine::component::Sprite           sprite          { 32, 24, {&textures[0], &textures[1], &textures[2]} };
-    constexpr static float              GRAVITY_SCALE   = 40.0f;
-    engine::vec2<float>                 velocity        {0, 0};
-    engine::component::Physics          physics;
-    engine::component::collision::Box&  hitBox = physics.newComponent<engine::component::collision::Box>(this);
+    ecc::Timer&             timer           = newComponent<ecc::Timer>();
+    ecc::Sprite&            sprite          = newComponent<ecc::Sprite>(32, 24, std::vector{&textures[0], &textures[1], &textures[2]});
+    constexpr static float  GRAVITY_SCALE   = 40.0f;
+    engine::vec2<float>     velocity          {0, 0};
+    ecc::Physics&           physics        = newComponent<ecc::Physics>();
+    ecc::collision::Box&    hitBox          = physics.newComponent<ecc::collision::Box>(this);
 
     // reference to MainScene::gameover. A shared scene-wide variable
     bool &gameover; 
@@ -39,34 +41,28 @@ public:
     {
         // register components as pointers
         transform.translate = {-100, 64};
-        components.push_back(&sprite);
-        components.push_back(&timer);
+        hitBox.size         = {32.0f, 24.0f};
+        update              = [this, &gameover](float deltaTime) {
+                                if (!gameover)
+                                {
+                                    if (engine::controls::isActionJustPressed("fly"))
+                                    {
+                                        velocity.y = 250.0f;
+                                        sprite.current_texture = 2;
+                                        timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
+                                    }
 
-        hitBox.size                 = {32.0f, 24.0f};
-        components.push_back(&physics);
-
-        update =
-            [this, &gameover](float deltaTime) {
-                if (!gameover)
-                {
-                    if (engine::controls::isActionJustPressed("fly"))
-                    {
-                        velocity.y = 250.0f;
-                        sprite.current_texture = 2;
-                        timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
-                    }
-
-                    auto coll = hitBox.checkCollision();
-                    if (coll == nullptr)
-                    {
-                        const auto gravity   = physics.gravity;
-                        velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
-                    }
-                    else
-                        gameover = true;
-                    transform.translate += velocity * deltaTime;
-                }
-            };
+                                    auto coll = hitBox.checkCollision();
+                                    if (coll == nullptr)
+                                    {
+                                        const auto gravity   = physics.gravity;
+                                        velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                                    }
+                                    else
+                                        gameover = true;
+                                    transform.translate += velocity * deltaTime;
+                                }
+                              };
     }
 
     // reset bird when called
@@ -82,13 +78,12 @@ class Background : public engine::Object
     // components
     std::array<engine::Texture, 2>  textures{"assets/sprites/background-night.png",
                                              "assets/sprites/background-day.png"};
-    engine::component::Sprite       sprite  {288, 512, {&textures[0], &textures[1]}};
+    ecc::Sprite&      sprite      = newComponent<ecc::Sprite>(288, 512, std::vector{&textures[0], &textures[1]});
 
 public:
     // init stuffs
     Background() : engine::Object("Background")
     {
-        components.push_back(&sprite);
         sprite.transform.scale.y = -1.0f;   // for some reason the background sprite now appears upside down
                                             // after a recent commit.
     }
@@ -100,13 +95,10 @@ class Ground : public engine::Object
     constexpr static int    SPRITE_SIZE = 2;
     
     // components
-    std::vector<engine::component::Sprite>  sprites;    // TODO (Maybe?): delete move and copy constructors for sprite.
-                                                        // Tho there isn't really a need to because the reason I would've originally
-                                                        // had for deleting the constructors has been solved by the new (as of now)
-                                                        // `Texture` class.
-    engine::component::Physics              physics;
-    engine::component::collision::Box&  hitBox = physics.newComponent<engine::component::collision::Box>(this);
-    engine::Texture                         groundTexture{"assets/sprites/base.png"};
+    std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
+    ecc::Physics&         physics = newComponent<ecc::Physics>();
+    ecc::collision::Box&  hitBox  = physics.newComponent<ecc::collision::Box>(this);
+    engine::Texture                     groundTexture{"assets/sprites/base.png"};
 
     bool &gameover; // MainScene::gameover reference
 
@@ -118,34 +110,32 @@ public:
         sprites.reserve(SPRITE_SIZE);
         for (int i = 0; i < SPRITE_SIZE; i++)
         {
-            auto &ref                   = sprites.emplace_back(336, 112, std::vector{&groundTexture});
+            auto &ref                   = newComponent<ecc::Sprite>(336, 112, std::vector{&groundTexture});
             ref.transform.translate.x   = i * 336;
-            components.push_back(&ref);
+            sprites.push_back(ref);
         }
         hitBox.size = engine::vec2{336.0f, 112.0f};
-        components.push_back(&physics);
-
-        update = 
-            [this, &gameover](float delta) {
-                if (!gameover)
-                {
-                    for (auto &s : sprites)
-                    {
-                        const auto left          = engine::vec2(-1.0f, 0.0f);
-                        auto velocity            = left * FLOOR_SPEED * delta;
-                        s.transform.translate   += velocity;
-                        if (s.transform.translate.x <= -336.0f)
-                            s.transform.translate.x += 336.0f * 2.f;
-                    }
-                }
-            };
+        update      = [this, &gameover](float delta) {
+                        if (!gameover)
+                        {
+                            for (auto &s : sprites)
+                            {
+                                const auto left          = engine::vec2(-1.0f, 0.0f);
+                                auto velocity            = left * FLOOR_SPEED * delta;
+                                s.get().transform.translate   += velocity;
+                                if (s.get().transform.translate.x <= -336.0f)
+                                    s.get().transform.translate.x += 336.0f * 2.f;
+                            }
+                        }
+                      };
     }
 };
 
 class Score : public engine::Object
 {
-    static constexpr int DIGITS = 2;    // only 2 digits for the score. So from 00 - 99
-    std::vector<engine::component::Sprite>  sprites;
+    static constexpr int DIGITS = 2;                                // only 2 digits for the score. So from 00 - 99
+                                                                    // TODO: edit this ^^. 2 digits is too small.
+    std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
     std::array<engine::Texture, 10>         textures{"assets/sprites/0.png",
                                                      "assets/sprites/1.png",
                                                      "assets/sprites/2.png",
@@ -165,28 +155,25 @@ public:
         sprites.reserve(DIGITS);
         for (int i = 0; i < DIGITS; i++)
         {
-            auto &ref = sprites.emplace_back(24, 36,
-                                             std::vector{&textures[0],
-                                                         &textures[1],
-                                                         &textures[2],
-                                                         &textures[3],
-                                                         &textures[4],
-                                                         &textures[5],
-                                                         &textures[6],
-                                                         &textures[7],
-                                                         &textures[8],
-                                                         &textures[9]});
-            components.push_back(&ref);
+            sprites.push_back(
+                newComponent<ecc::Sprite>(
+                    24, 36,
+                    std::vector{&textures[0], &textures[1],
+                                &textures[2], &textures[3],
+                                &textures[4], &textures[5],
+                                &textures[6], &textures[7],
+                                &textures[8], &textures[9]}
+            ));
         }
-        sprites[0].transform.translate.x = -11;
-        sprites[1].transform.translate.x = 11;
+        sprites[0].get().transform.translate.x = -11;
+        sprites[1].get().transform.translate.x = 11;
 
         update =
             [this](float) {
                 if (score < 100)
                 {
-                    sprites[0].current_texture = static_cast<uint32_t>(score / 10);
-                    sprites[1].current_texture = static_cast<uint32_t>(score % 10);
+                    sprites[0].get().current_texture = static_cast<uint32_t>(score / 10);
+                    sprites[1].get().current_texture = static_cast<uint32_t>(score % 10);
                 }
             };
     }
@@ -197,33 +184,33 @@ class Pipes : public engine::Object
     static constexpr int PIPE_COUNT = 4;
     static constexpr float SPACING = 175;   // distance between pipes
 
-    std::vector<std::reference_wrapper<engine::component::collision::Box>> collisionBoxes;
-    engine::component::Physics                      physics;
-    std::vector<engine::component::Sprite>          pipes;
-    engine::Texture                                 texture {"assets/sprites/pipe-red.png" };
-    Score&                                          score;
-    bool&                                           gameover;
+    ecc::Physics&                                             physics = newComponent<ecc::Physics>();
+    std::vector<std::reference_wrapper<ecc::collision::Box>>  collisionBoxes;
+    std::vector<std::reference_wrapper<ecc::Sprite>>          pipes;
+    engine::Texture texture {"assets/sprites/pipe-red.png" };
+    Score&          score;
+    bool&           gameover;
 
 public:
-    Pipes(Score &score, bool &gameover) : engine::Object("Pipes"), score(score), gameover(gameover)
+    Pipes(Score &score, bool &gameover)
+    : engine::Object("Pipes"), score(score), gameover(gameover)
     {
         pipes.reserve(PIPE_COUNT);
         collisionBoxes.reserve(PIPE_COUNT);
         for (int i = 0; i < PIPE_COUNT; i++)
         {
-            auto &ref                   = pipes.emplace_back(52, 320, std::vector{ &texture });
+            auto &ref                   = newComponent<ecc::Sprite>(52, 320, std::vector{ &texture });
             ref.transform.rotate        = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
-            components.push_back(&ref);
+            pipes.push_back(ref);
 
-            auto &boxRef                    = physics.newComponent<engine::component::collision::Box>(this);
+            auto &boxRef                    = physics.newComponent<ecc::collision::Box>(this);
             boxRef.size                     = {52, 320};
             boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
             boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
             collisionBoxes.push_back(boxRef);
         }
-        components.push_back(&physics);
 
         update =
             [this, &gameover, &score](float delta) {
@@ -237,10 +224,10 @@ public:
                         const auto left = engine::vec2(-1.0f, 0.0f);
                         auto velocity = left * FLOOR_SPEED * delta;
 
-                        p.transform.translate += velocity;
-                        if (p.transform.translate.x <= -170.0f)
+                        p.get().transform.translate += velocity;
+                        if (p.get().transform.translate.x <= -170.0f)
                         {
-                            p.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                            p.get().transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
                             add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
                                             // so here it is.
                         }
@@ -261,7 +248,7 @@ public:
     {
         for (int i = 0; i < PIPE_COUNT; i++)
         {
-            auto &ref                       = pipes[i];
+            auto &ref                       = pipes[i].get();
             ref.transform.rotate            = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y       = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x       = static_cast<int>(i / 2) * SPACING - 100.0f;
@@ -276,11 +263,9 @@ public:
 class Gameover : public engine::Object
 {
     engine::Texture texture {"assets/sprites/gameover.png"};
-    engine::component::Sprite sprite{192, 42, {&texture}};
-
+    ecc::Sprite &sprite = newComponent<ecc::Sprite>(192, 42, std::vector{&texture});
 public:
-    Gameover() : engine::Object("Gameover")
-    { components.push_back(&sprite); }
+    Gameover() : engine::Object("Gameover") {}
 };
 
 class MainScene : public engine::Scene
@@ -331,11 +316,10 @@ class Message : public engine::Object
 {
     // components loaded here so they can persist for the lifetime of the component
     engine::Texture texture {"assets/sprites/message.png"};
-    engine::component::Sprite sprite {184, 267, {&texture}};
+    ecc::Sprite &sprite = newComponent<ecc::Sprite>(184, 267, std::vector{&texture});
 
 public:
-    Message() : engine::Object("Background message")
-    { components.push_back(&sprite); }
+    Message() : engine::Object("Background message") {}
 };
 
 // Initial load screen. The first scene you see when you open the game
@@ -375,4 +359,6 @@ int main()
     engine::start();    // the game loop and every runtime stuff happens inside here
     engine::cleanup();
     return EXIT_SUCCESS;
+    // TODO: Fix trace trap exit bug
 }
+
