@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <functional>
 #include <initializer_list>
 #include <objects.hpp>
@@ -30,7 +31,7 @@ class Bird : public engine::Object
     ecc::Sprite&            sprite          = newComponent<ecc::Sprite>(32, 24, std::vector{&textures[0], &textures[1], &textures[2]});
     constexpr static float  GRAVITY_SCALE   = 40.0f;
     engine::vec2<float>     velocity          {0, 0};
-    ecc::Physics&           physics        = newComponent<ecc::Physics>();
+    ecc::Physics&           physics         = newComponent<ecc::Physics>();
     ecc::collision::Box&    hitBox          = physics.newCollisionShape<ecc::collision::Box>(this);
 
     // reference to MainScene::gameover. A shared scene-wide variable
@@ -198,7 +199,8 @@ public:
 class Pipes : public engine::Object
 {
     static constexpr int PIPE_COUNT = 4;
-    static constexpr float SPACING = 175;   // distance between pipes
+    static constexpr float SPACING = 200;   // distance between pipes
+    static constexpr int PIPE_HEIGHT = 320;
 
     Score&          score;
     bool&           gameover;
@@ -209,7 +211,8 @@ class Pipes : public engine::Object
         std::ranges::views::transform(
             [this](auto i) -> ecc::Sprite& {
                 auto &ref                   = newComponent<ecc::Sprite>(52, 320, std::vector{ &texture });
-                ref.transform.rotate        = i % 2 ? 180.0f : 0.f;
+                ref.transform.rotate        = i % 2 ? 180.0f : 0.f;   // i % 2 checks if it's the top pipe. true if it's an odd number.
+                                                                      // false if it's an even number
                 ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
                 ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
                 return ref;
@@ -241,23 +244,40 @@ public:
                     // move all the ppes back at the same speed, and move them to the other side of the screen
                     // when it crosses the screen behind the player.
                     auto add = 0.0f;
-                    for (const auto &[b, p] : std::ranges::views::zip(collisionBoxes, pipes))
+                    int bottomPipe = 0;
+
+                    for (auto i : std::ranges::views::iota(0, PIPE_COUNT))
                     {
+                        auto &b = collisionBoxes[i].get();
+                        auto &p = pipes[i].get();
+                        bool isTop = i % 2;
+
                         const auto left = engine::vec2(-1.0f, 0.0f);
                         auto velocity = left * FLOOR_SPEED * delta;
 
-                        p.get().transform.translate += velocity;
-                        if (p.get().transform.translate.x <= -170.0f)
+                        p.transform.translate += velocity;
+                        b.transform.translate += velocity;
+                        if (p.transform.translate.x <= -170.0f)
                         {
-                            p.get().transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                            p.transform.translate.x += SPACING * (PIPE_COUNT / 2.f);
+                            b.transform.translate.x += SPACING * (PIPE_COUNT / 2.f);
                             add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
                                             // so here it is.
+
+                            if (isTop)
+                            {
+                                auto gap = bottomPipe + PIPE_HEIGHT + (rand() % (250 - 150)) + 100;
+                                p.transform.translate.y = gap;
+                                b.transform.translate.y = gap;
+                            }
+                            else
+                            {
+                                bottomPipe = 0 - (rand() % (PIPE_HEIGHT / 2) - 120) - (PIPE_HEIGHT * 0.75f);
+                                p.transform.translate.y = bottomPipe;
+                                b.transform.translate.y = bottomPipe;
+                            }
                         }
 
-                        // the collision box should also follow the pipes
-                        b.get().transform.translate += velocity;
-                        if (b.get().transform.translate.x <= -170.0f)
-                            b.get().transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
                     }
                     score.score += add;
                 }
@@ -367,6 +387,7 @@ public:
 
 int main()
 {
+    std::srand(std::time(0));
     // initialize the engine and register some key bindings
     engine::init("Flappy bird", 288, 512);  // TODO: allow passing window flags from here. Likely end up with a custom flag
                                             // setup because I have to also be able to translate the features to the engine's gameview.
