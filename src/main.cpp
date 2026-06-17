@@ -358,7 +358,8 @@ int main()
 {
     // initialize the engine and register some key bindings
     engine::init("Flappy bird", 288, 512);  // TODO: allow passing window flags from here. Likely end up with a custom flag
-                                            // setup because I have to also be able to translate the features to the engine's gameview
+                                            // setup because I have to also be able to translate the features to the engine's gameview.
+                                            // Maybe something similar to vulkan options.
     engine::controls::registerAction("fly", SDLK_SPACE);
     engine::controls::registerAction("ui_accept", SDLK_RETURN);
     engine::controls::registerAction("ui_accept", SDLK_SPACE);
@@ -371,6 +372,5 @@ int main()
     engine::start();    // the game loop and every runtime stuff happens inside here
     engine::cleanup();
     return EXIT_SUCCESS;
-    // TODO: Fix trace trap exit bug
 }
 
