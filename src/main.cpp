@@ -42,27 +42,28 @@ public:
         // register components as pointers
         transform.translate = {-100, 64};
         hitBox.size         = {32.0f, 24.0f};
-        update              = [this, &gameover](float deltaTime) {
-                                if (!gameover)
-                                {
-                                    if (engine::controls::isActionJustPressed("fly"))
-                                    {
-                                        velocity.y = 250.0f;
-                                        sprite.current_texture = 2;
-                                        timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
-                                    }
+        update              =
+            [this, &gameover](float deltaTime) {
+                if (!gameover)
+                {
+                    if (engine::controls::isActionJustPressed("fly"))
+                    {
+                        velocity.y = 250.0f;
+                        sprite.current_texture = 2;
+                        timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
+                    }
 
-                                    auto coll = hitBox.checkCollision();
-                                    if (coll == nullptr)
-                                    {
-                                        const auto gravity   = physics.gravity;
-                                        velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
-                                    }
-                                    else
-                                        gameover = true;
-                                    transform.translate += velocity * deltaTime;
-                                }
-                              };
+                    auto coll = hitBox.checkCollision();
+                    if (coll == nullptr)
+                    {
+                        const auto gravity   = physics.gravity;
+                        velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
+                    }
+                    else
+                        gameover = true;
+                    transform.translate += velocity * deltaTime;
+                }
+            };
     }
 
     // reset bird when called
@@ -95,90 +96,94 @@ class Ground : public engine::Object
     constexpr static int    SPRITE_SIZE = 2;
     
     // components
-    std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
+    std::vector<std::reference_wrapper<ecc::Sprite>> sprites = std::ranges::to<std::vector<std::reference_wrapper<ecc::Sprite>>>(
+        std::ranges::views::iota(0, SPRITE_SIZE) |
+        std::ranges::views::transform([this](auto i) -> ecc::Sprite& {
+            auto &ref                   = newComponent<ecc::Sprite>(336, 112, std::vector{&groundTexture});
+            ref.transform.translate.x   = i * 336;
+            return ref;
+        })
+    );
     ecc::Physics&         physics = newComponent<ecc::Physics>();
     ecc::collision::Box&  hitBox  = physics.newCollisionShape<ecc::collision::Box>(this);
-    engine::Texture                     groundTexture{"assets/sprites/base.png"};
+    engine::Texture groundTexture{"assets/sprites/base.png"};
 
     bool &gameover; // MainScene::gameover reference
+    
 
 public:
     // initialize stuffs
     Ground(bool &gameover) : engine::Object("Ground"), gameover(gameover)
     {
         transform.translate = {0, -200};
-        sprites.reserve(SPRITE_SIZE);
-        for (int i = 0; i < SPRITE_SIZE; i++)
-        {
-            auto &ref                   = newComponent<ecc::Sprite>(336, 112, std::vector{&groundTexture});
-            ref.transform.translate.x   = i * 336;
-            sprites.push_back(ref);
-        }
         hitBox.size = engine::vec2{336.0f, 112.0f};
-        update      = [this, &gameover](float delta) {
-                        if (!gameover)
-                        {
-                            for (auto &s : sprites)
-                            {
-                                const auto left          = engine::vec2(-1.0f, 0.0f);
-                                auto velocity            = left * FLOOR_SPEED * delta;
-                                s.get().transform.translate   += velocity;
-                                if (s.get().transform.translate.x <= -336.0f)
-                                    s.get().transform.translate.x += 336.0f * 2.f;
-                            }
-                        }
-                      };
+        update      =
+            [this, &gameover](float delta) {
+                if (!gameover)
+                {
+                    for (auto &s : sprites)
+                    {
+                        const auto left          = engine::vec2(-1.0f, 0.0f);
+                        auto velocity            = left * FLOOR_SPEED * delta;
+                        s.get().transform.translate   += velocity;
+                        if (s.get().transform.translate.x <= -336.0f)
+                            s.get().transform.translate.x += 336.0f * 2.f;
+                    }
+                }
+            };
     }
 };
 
 class Score : public engine::Object
 {
     static constexpr int DIGITS = 3;    // only 3 digits for the score. So from 000 - 999
-    std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
-    std::array<engine::Texture, 10>         textures{"assets/sprites/0.png",
-                                                     "assets/sprites/1.png",
-                                                     "assets/sprites/2.png",
-                                                     "assets/sprites/3.png",
-                                                     "assets/sprites/4.png",
-                                                     "assets/sprites/5.png",
-                                                     "assets/sprites/6.png",
-                                                     "assets/sprites/7.png",
-                                                     "assets/sprites/8.png",
-                                                     "assets/sprites/9.png"};
+    static constexpr auto disp_factor = DIGITS % 2 == 0 ? .5f : 1.f;      // if odd add by 1 else add by half
+    std::vector<std::reference_wrapper<ecc::Sprite>> sprites = std::ranges::to<std::vector<std::reference_wrapper<ecc::Sprite>>>(
+        std::ranges::views::iota(0, DIGITS) |
+        std::ranges::views::transform(
+            [this](auto i) -> ecc::Sprite& {
+                auto &ref = newComponent<ecc::Sprite>(
+                                24, 36,
+                                std::vector{&textures[0], &textures[1],
+                                    &textures[2], &textures[3],
+                                    &textures[4], &textures[5],
+                                    &textures[6], &textures[7],
+                                    &textures[8], &textures[9]});
+
+                constexpr int half = DIGITS / 2;
+                if (DIGITS % 2 && i == half)
+                    // Do nothing. This prevents further condition block from moving 
+                    // the sprite that's supposed to be at the center of the score
+                    // when the number of digits is odd
+                    (void)0;
+                else
+                    ref.transform.translate.x = (
+                        (i - half) * disp_factor * 24 -     // 24 is the width of the sprite.
+                        ((i - half) < 0 ? -1 : 1)           // Displace by 1 pixel to keep things looking cleaner and
+                                                            // more compact
+                    );
+
+                return ref;
+            }
+        )
+    );
+    std::array<engine::Texture, 10> textures{"assets/sprites/0.png",
+                                             "assets/sprites/1.png",
+                                             "assets/sprites/2.png",
+                                             "assets/sprites/3.png",
+                                             "assets/sprites/4.png",
+                                             "assets/sprites/5.png",
+                                             "assets/sprites/6.png",
+                                             "assets/sprites/7.png",
+                                             "assets/sprites/8.png",
+                                             "assets/sprites/9.png"};
 
 public:
     uint16_t score = 0;
     Score() : engine::Object("Score")
     {
-        constexpr auto disp_factor = DIGITS % 2 == 0 ? .5f : 1.f;      // if odd add by 1 else add by half
         transform.translate.y = 222;
-        sprites.reserve(DIGITS);
-        for (int i = 0; i < DIGITS; i++)
-        {
-            auto &ref = newComponent<ecc::Sprite>(
-                            24, 36,
-                            std::vector{&textures[0], &textures[1],
-                                &textures[2], &textures[3],
-                                &textures[4], &textures[5],
-                                &textures[6], &textures[7],
-                                &textures[8], &textures[9]});
-            sprites.push_back(ref);
-
-            constexpr int half = DIGITS / 2;
-            if (DIGITS % 2 && i == half)
-                // Do nothing. This prevents further condition block from moving 
-                // the sprite that's supposed to be at the center of the score
-                // when the number of digits is odd
-                continue;
-            else
-                ref.transform.translate.x = (
-                    (i - half) * disp_factor * 24 -     // 24 is the width of the sprite.
-                    ((i - half) < 0 ? -1 : 1)           // Displace by 1 pixel to keep things looking cleaner and
-                                                        // more compact
-                );
-        }
-
-        update =
+        update                =
             [this](float) {
                 auto _s = score;
                 for (int i = DIGITS - 1; i >= 0; i--)
@@ -195,34 +200,40 @@ class Pipes : public engine::Object
     static constexpr int PIPE_COUNT = 4;
     static constexpr float SPACING = 175;   // distance between pipes
 
-    ecc::Physics&                                             physics = newComponent<ecc::Physics>();
-    std::vector<std::reference_wrapper<ecc::collision::Box>>  collisionBoxes;
-    std::vector<std::reference_wrapper<ecc::Sprite>>          pipes;
-    engine::Texture texture {"assets/sprites/pipe-red.png" };
     Score&          score;
     bool&           gameover;
+    engine::Texture texture {"assets/sprites/pipe-red.png" };
+
+    std::vector<std::reference_wrapper<ecc::Sprite>>          pipes          = std::ranges::to<std::vector<std::reference_wrapper<ecc::Sprite>>>(
+        std::ranges::views::iota(0, PIPE_COUNT) |
+        std::ranges::views::transform(
+            [this](auto i) -> ecc::Sprite& {
+                auto &ref                   = newComponent<ecc::Sprite>(52, 320, std::vector{ &texture });
+                ref.transform.rotate        = i % 2 ? 180.0f : 0.f;
+                ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
+                ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
+                return ref;
+            }
+        )
+    );
+    ecc::Physics&                                             physics        = newComponent<ecc::Physics>();
+    std::vector<std::reference_wrapper<ecc::collision::Box>>  collisionBoxes = std::ranges::to<std::vector<std::reference_wrapper<ecc::collision::Box>>>(
+        std::ranges::views::iota(0, PIPE_COUNT) |
+        std::ranges::views::transform(
+            [this](auto i) -> ecc::collision::Box& {
+                auto &boxRef                    = physics.newCollisionShape<ecc::collision::Box>(this);
+                boxRef.size                     = {52, 320};
+                boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
+                boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
+                return boxRef;
+            }
+        )
+    );
 
 public:
     Pipes(Score &score, bool &gameover)
     : engine::Object("Pipes"), score(score), gameover(gameover)
     {
-        pipes.reserve(PIPE_COUNT);
-        collisionBoxes.reserve(PIPE_COUNT);
-        for (int i = 0; i < PIPE_COUNT; i++)
-        {
-            auto &ref                   = newComponent<ecc::Sprite>(52, 320, std::vector{ &texture });
-            ref.transform.rotate        = i % 2 ? 180.0f : 0.f;
-            ref.transform.translate.y   = i % 2 ? 256.0f : -256.0f;
-            ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
-            pipes.push_back(ref);
-
-            auto &boxRef                    = physics.newCollisionShape<ecc::collision::Box>(this);
-            boxRef.size                     = {52, 320};
-            boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
-            boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
-            collisionBoxes.push_back(boxRef);
-        }
-
         update =
             [this, &gameover, &score](float delta) {
                 if (!gameover)
