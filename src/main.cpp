@@ -31,7 +31,7 @@ class Bird : public engine::Object
     constexpr static float  GRAVITY_SCALE   = 40.0f;
     engine::vec2<float>     velocity          {0, 0};
     ecc::Physics&           physics        = newComponent<ecc::Physics>();
-    ecc::collision::Box&    hitBox          = physics.newComponent<ecc::collision::Box>(this);
+    ecc::collision::Box&    hitBox          = physics.newCollisionShape<ecc::collision::Box>(this);
 
     // reference to MainScene::gameover. A shared scene-wide variable
     bool &gameover; 
@@ -97,7 +97,7 @@ class Ground : public engine::Object
     // components
     std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
     ecc::Physics&         physics = newComponent<ecc::Physics>();
-    ecc::collision::Box&  hitBox  = physics.newComponent<ecc::collision::Box>(this);
+    ecc::collision::Box&  hitBox  = physics.newCollisionShape<ecc::collision::Box>(this);
     engine::Texture                     groundTexture{"assets/sprites/base.png"};
 
     bool &gameover; // MainScene::gameover reference
@@ -133,8 +133,7 @@ public:
 
 class Score : public engine::Object
 {
-    static constexpr int DIGITS = 2;                                // only 2 digits for the score. So from 00 - 99
-                                                                    // TODO: edit this ^^. 2 digits is too small.
+    static constexpr int DIGITS = 3;    // only 3 digits for the score. So from 000 - 999
     std::vector<std::reference_wrapper<ecc::Sprite>>  sprites;
     std::array<engine::Texture, 10>         textures{"assets/sprites/0.png",
                                                      "assets/sprites/1.png",
@@ -148,32 +147,44 @@ class Score : public engine::Object
                                                      "assets/sprites/9.png"};
 
 public:
-    uint8_t score = 0;
+    uint16_t score = 0;
     Score() : engine::Object("Score")
     {
+        constexpr auto disp_factor = DIGITS % 2 == 0 ? .5f : 1.f;      // if odd add by 1 else add by half
         transform.translate.y = 222;
         sprites.reserve(DIGITS);
         for (int i = 0; i < DIGITS; i++)
         {
-            sprites.push_back(
-                newComponent<ecc::Sprite>(
-                    24, 36,
-                    std::vector{&textures[0], &textures[1],
+            auto &ref = newComponent<ecc::Sprite>(
+                            24, 36,
+                            std::vector{&textures[0], &textures[1],
                                 &textures[2], &textures[3],
                                 &textures[4], &textures[5],
                                 &textures[6], &textures[7],
-                                &textures[8], &textures[9]}
-            ));
+                                &textures[8], &textures[9]});
+            sprites.push_back(ref);
+
+            constexpr int half = DIGITS / 2;
+            if (DIGITS % 2 && i == half)
+                // Do nothing. This prevents further condition block from moving 
+                // the sprite that's supposed to be at the center of the score
+                // when the number of digits is odd
+                continue;
+            else
+                ref.transform.translate.x = (
+                    (i - half) * disp_factor * 24 -     // 24 is the width of the sprite.
+                    ((i - half) < 0 ? -1 : 1)           // Displace by 1 pixel to keep things looking cleaner and
+                                                        // more compact
+                );
         }
-        sprites[0].get().transform.translate.x = -11;
-        sprites[1].get().transform.translate.x = 11;
 
         update =
             [this](float) {
-                if (score < 100)
+                auto _s = score;
+                for (int i = DIGITS - 1; i >= 0; i--)
                 {
-                    sprites[0].get().current_texture = static_cast<uint32_t>(score / 10);
-                    sprites[1].get().current_texture = static_cast<uint32_t>(score % 10);
+                    sprites[i].get().current_texture = _s % 10;
+                    _s /= 10;
                 }
             };
     }
@@ -205,7 +216,7 @@ public:
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
             pipes.push_back(ref);
 
-            auto &boxRef                    = physics.newComponent<ecc::collision::Box>(this);
+            auto &boxRef                    = physics.newCollisionShape<ecc::collision::Box>(this);
             boxRef.size                     = {52, 320};
             boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
             boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
@@ -252,6 +263,7 @@ public:
             ref.transform.rotate            = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y       = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x       = static_cast<int>(i / 2) * SPACING - 100.0f;
+
             auto &boxRef                    = collisionBoxes[i].get();
             boxRef.size                     = {52, 320};
             boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
