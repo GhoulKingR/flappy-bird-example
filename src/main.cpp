@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <objects.hpp>
 #include <ranges>
@@ -28,7 +29,7 @@ class Bird : public engine::Object
     constexpr static float              GRAVITY_SCALE   = 40.0f;
     engine::vec2<float>                 velocity        {0, 0};
     engine::component::Physics          physics;
-    engine::component::collision::Box   hitBox          {this};
+    engine::component::collision::Box&  hitBox = physics.newComponent<engine::component::collision::Box>(this);
 
     // reference to MainScene::gameover. A shared scene-wide variable
     bool &gameover; 
@@ -42,7 +43,6 @@ public:
         components.push_back(&timer);
 
         hitBox.size                 = {32.0f, 24.0f};
-        physics.collisionShapes.push_back(&hitBox);
         components.push_back(&physics);
 
         update =
@@ -105,7 +105,7 @@ class Ground : public engine::Object
                                                         // had for deleting the constructors has been solved by the new (as of now)
                                                         // `Texture` class.
     engine::component::Physics              physics;
-    engine::component::collision::Box       hitBox{this};
+    engine::component::collision::Box&  hitBox = physics.newComponent<engine::component::collision::Box>(this);
     engine::Texture                         groundTexture{"assets/sprites/base.png"};
 
     bool &gameover; // MainScene::gameover reference
@@ -123,7 +123,6 @@ public:
             components.push_back(&ref);
         }
         hitBox.size = engine::vec2{336.0f, 112.0f};
-        physics.collisionShapes.push_back(&hitBox);
         components.push_back(&physics);
 
         update = 
@@ -198,9 +197,9 @@ class Pipes : public engine::Object
     static constexpr int PIPE_COUNT = 4;
     static constexpr float SPACING = 175;   // distance between pipes
 
+    std::vector<std::reference_wrapper<engine::component::collision::Box>> collisionBoxes;
     engine::component::Physics                      physics;
     std::vector<engine::component::Sprite>          pipes;
-    std::vector<engine::component::collision::Box>  collisionBoxes;
     engine::Texture                                 texture {"assets/sprites/pipe-red.png" };
     Score&                                          score;
     bool&                                           gameover;
@@ -218,11 +217,11 @@ public:
             ref.transform.translate.x   = static_cast<int>(i / 2) * SPACING - 100.0f;
             components.push_back(&ref);
 
-            auto &boxRef                    = collisionBoxes.emplace_back(this);
+            auto &boxRef                    = physics.newComponent<engine::component::collision::Box>(this);
             boxRef.size                     = {52, 320};
             boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
             boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
-            physics.collisionShapes.push_back(&boxRef);
+            collisionBoxes.push_back(boxRef);
         }
         components.push_back(&physics);
 
@@ -247,9 +246,9 @@ public:
                         }
 
                         // the collision box should also follow the pipes
-                        b.transform.translate += velocity;
-                        if (b.transform.translate.x <= -170.0f)
-                            b.transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
+                        b.get().transform.translate += velocity;
+                        if (b.get().transform.translate.x <= -170.0f)
+                            b.get().transform.translate.x += 170.0f * (PIPE_COUNT / 2.f);
                     }
                     score.score += add;
                 }
@@ -266,7 +265,7 @@ public:
             ref.transform.rotate            = i % 2 ? 180.0f : 0.f;
             ref.transform.translate.y       = i % 2 ? 256.0f : -256.0f;
             ref.transform.translate.x       = static_cast<int>(i / 2) * SPACING - 100.0f;
-            auto &boxRef                    = collisionBoxes[i];
+            auto &boxRef                    = collisionBoxes[i].get();
             boxRef.size                     = {52, 320};
             boxRef.transform.translate.y    = i % 2 ? 256.0f : -256.0f;
             boxRef.transform.translate.x    = static_cast<int>(i / 2) * SPACING - 100.0f;
