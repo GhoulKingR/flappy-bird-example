@@ -4,6 +4,9 @@ project(flappybird)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if (EMSCRIPTEN)
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+endif()
 
 add_subdirectory(gev0_engine)
 add_executable(${PROJECT_NAME} src/main.cpp)
@@ -17,18 +20,33 @@ add_custom_command(
     COMMENT "Copying assets to build directory"
 )
 
-if (SANITIZER)
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        -g
-        -O0
-        -fsanitize=address,undefined
-        -fno-omit-frame-pointer
-    )
+if(EMSCRIPTEN)
     target_link_options(${PROJECT_NAME} PRIVATE
-        -fsanitize=address,undefined
+        "-sUSE_WEBGL2=1"
+        --shell-file    "${CMAKE_SOURCE_DIR}/shell.html"
+        --preload-file  "${CMAKE_SOURCE_DIR}/assets@assets"
     )
+
+    if (DEBUG)
+        target_compile_options(${PROJECT_NAME} PRIVATE -g3)
+        target_link_options   (${PROJECT_NAME} PRIVATE -s ASSERTIONS=1)
+    else()
+        target_compile_options(${PROJECT_NAME} PRIVATE -O3)
+    endif()
 else()
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        -O3
-    )
+    if (SANITIZER)
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -g
+            -O0
+            -fsanitize=address,undefined
+            -fno-omit-frame-pointer
+        )
+        target_link_options(${PROJECT_NAME} PRIVATE
+            -fsanitize=address,undefined
+        )
+    else()
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -O3
+        )
+    endif()
 endif()

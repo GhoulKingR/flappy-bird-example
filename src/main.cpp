@@ -402,7 +402,5 @@ int main()
     engine::scene::load(&scn0);
 
     engine::start();    // the game loop and every runtime stuff happens inside here
-    engine::cleanup();
-    return EXIT_SUCCESS;
 }
 
