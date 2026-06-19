@@ -1,20 +1,21 @@
-#include "components.hpp"
-#include "controls.hpp"
-#include "textures.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <functional>
 #include <initializer_list>
-#include <objects.hpp>
 #include <ranges>
-#include <scene.hpp>
-#include <engine.hpp>
 #include <cstdlib>
 #include <string>
 #include <unistd.h>
 #include <vector>
+
+#include <gev0/engine.hpp>
+#include <gev0/scene.hpp>
+#include <gev0/components.hpp>
+#include <gev0/controls.hpp>
+#include <gev0/textures.hpp>
+#include <gev0/objects.hpp>
 
 constexpr static float  FLOOR_SPEED = 150.0f;
 
@@ -36,7 +37,7 @@ class Bird : public engine::Object
     ecc::collision::Box&    hitBox          = physics.newCollisionShape<ecc::collision::Box>(this);
 
     // reference to MainScene::gameover. A shared scene-wide variable
-    bool &gameover; 
+    bool &gameover;
 
 public:
     Bird(bool &gameover) : engine::Object("Bird"), gameover(gameover)
@@ -51,10 +52,10 @@ public:
                 {
                     if (engine::controls::isActionJustPressed("fly"))
                     {
+                        sound.play("flap");
                         velocity.y = 250.0f;
                         sprite.current_texture = 2;
                         timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
-                        sound.play("flap");
                     }
 
                     auto coll = hitBox.checkCollision();
@@ -65,8 +66,8 @@ public:
                     }
                     else
                     {
-                        gameover = true;
                         sound.play("hit");
+                        gameover = true;
                     }
                     transform.translate += velocity * deltaTime;
                 }
@@ -101,7 +102,7 @@ class Ground : public engine::Object
 {
     // amount of sprites to use for the infinite moving floor implementation
     constexpr static int    SPRITE_SIZE = 2;
-    
+
     // components
     std::vector<std::reference_wrapper<ecc::Sprite>> sprites = std::ranges::to<std::vector<std::reference_wrapper<ecc::Sprite>>>(
         std::ranges::views::iota(0, SPRITE_SIZE) |
@@ -116,7 +117,7 @@ class Ground : public engine::Object
     engine::Texture groundTexture{"assets/sprites/base.png"};
 
     bool &gameover; // MainScene::gameover reference
-    
+
 
 public:
     // initialize stuffs
@@ -159,7 +160,7 @@ class Score : public engine::Object
 
                 constexpr int half = DIGITS / 2;
                 if (DIGITS % 2 && i == half)
-                    // Do nothing. This prevents further condition block from moving 
+                    // Do nothing. This prevents further condition block from moving
                     // the sprite that's supposed to be at the center of the score
                     // when the number of digits is odd
                     (void)0;
@@ -419,4 +420,3 @@ int main()
 
     engine::start();    // the game loop and every runtime stuff happens inside here
 }
-
