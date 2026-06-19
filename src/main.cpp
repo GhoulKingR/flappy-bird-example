@@ -28,6 +28,7 @@ class Bird : public engine::Object
                                             "assets/sprites/redbird-downflap.png"};
 
     ecc::Timer&             timer           = newComponent<ecc::Timer>();
+    ecc::Sound&             sound           = newComponent<ecc::Sound>();
     ecc::Sprite&            sprite          = newComponent<ecc::Sprite>(32, 24, std::vector{&textures[0], &textures[1], &textures[2]});
     constexpr static float  GRAVITY_SCALE   = 40.0f;
     engine::vec2<float>     velocity          {0, 0};
@@ -40,7 +41,8 @@ class Bird : public engine::Object
 public:
     Bird(bool &gameover) : engine::Object("Bird"), gameover(gameover)
     {
-        // register components as pointers
+        sound.addSound("flap", "assets/audio/wing.wav");
+        sound.addSound("hit",  "assets/audio/hit.wav");
         transform.translate = {-100, 64};
         hitBox.size         = {32.0f, 24.0f};
         update              =
@@ -52,6 +54,7 @@ public:
                         velocity.y = 250.0f;
                         sprite.current_texture = 2;
                         timer.setTimeout([this](){ sprite.current_texture--; }, 500, 2);
+                        sound.play("flap");
                     }
 
                     auto coll = hitBox.checkCollision();
@@ -61,7 +64,10 @@ public:
                         velocity.y          += -gravity * GRAVITY_SCALE * deltaTime;
                     }
                     else
+                    {
                         gameover = true;
+                        sound.play("hit");
+                    }
                     transform.translate += velocity * deltaTime;
                 }
             };
@@ -232,11 +238,13 @@ class Pipes : public engine::Object
             }
         )
     );
+    ecc::Sound&                                                 sound       = newComponent<ecc::Sound>();
 
 public:
     Pipes(Score &score, bool &gameover)
     : engine::Object("Pipes"), score(score), gameover(gameover)
     {
+        sound.addSound("point", "assets/audio/point.wav");
         update =
             [this, &gameover, &score](float delta) {
                 if (!gameover)
@@ -246,6 +254,7 @@ public:
                     auto add = 0.0f;
                     int bottomPipe = 0;
 
+                    static bool pointed[PIPE_COUNT] = {0};
                     for (auto i : std::ranges::views::iota(0, PIPE_COUNT))
                     {
                         auto &b = collisionBoxes[i].get();
@@ -257,12 +266,17 @@ public:
 
                         p.transform.translate += velocity;
                         b.transform.translate += velocity;
-                        if (p.transform.translate.x <= -170.0f)
+
+                        if (p.transform.translate.x <= -126.f && !pointed[i])
                         {
+                            add += 0.5f;
+                            pointed[i] = true;
+                        }
+                        else if (p.transform.translate.x <= -170.0f)
+                        {
+                            pointed[i] = false;
                             p.transform.translate.x += SPACING * (PIPE_COUNT / 2.f);
                             b.transform.translate.x += SPACING * (PIPE_COUNT / 2.f);
-                            add += 0.5f;    // too lazy to make a proper pipe-cross-player detection and this was good enough
-                                            // so here it is.
 
                             if (isTop)
                             {
@@ -280,6 +294,8 @@ public:
 
                     }
                     score.score += add;
+                    if (add >= 1)
+                        sound.play("point");
                 }
             };
     }
